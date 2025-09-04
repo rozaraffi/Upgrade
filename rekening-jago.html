@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rekening Bank Jago</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f3f4f6; /* bg-gray-100 */
+      color: #1f2937;
+    }
+    /* Custom scrollbar for better aesthetics */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #e5e7eb;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #9ca3af;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6b7280;
+    }
+
+    /* Toast Notification Styles (matching dashboard) */
+    @keyframes slide-in-fade {
+      from { opacity: 0; transform: translateX(50px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .animate-slide-in-fade {
+      animation: slide-in-fade 0.4s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-6 md:p-10">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex items-center mb-8">
+      <a href="index.html" class="text-gray-600 hover:text-blue-800 text-lg font-medium mr-4 flex items-center">
+        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        Kembali
+      </a>
+      <h1 class="text-4xl font-extrabold text-blue-800 ml-auto">🏦 Laporan Rekening: <span id="rekeningNama">Bank Jago</span></h1>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+      <div class="bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-2xl shadow-xl p-6 text-center transform hover:scale-105 transition-transform duration-300">
+        <h2 class="text-xl font-medium mb-2 opacity-90">Saldo Saat Ini (Keseluruhan)</h2>
+        <p class="text-5xl font-bold" id="saldoRekening">Rp 0</p>
+      </div>
+      <div class="bg-white rounded-2xl shadow-xl p-6 border border-gray-200">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">➕ Input Transaksi Baru</h2>
+        <div class="grid grid-cols-1 gap-4">
+          <input type="date" id="tanggal" class="border border-gray-300 px-4 py-3 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out" />
+          <input type="text" id="akun" placeholder="Nama Akun / Sumber" class="border border-gray-300 px-4 py-3 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out" />
+          <select id="jenis" class="border border-gray-300 px-4 py-3 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out">
+            <option value="pemasukan">Pemasukan</option>
+            <option value="pengeluaran">Pengeluaran</option>
+          </select>
+          <input type="text" id="nominalInputFormatted" placeholder="Nominal (misal: 100.000)" class="border border-gray-300 px-4 py-3 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out" />
+          <input type="text" id="keterangan" placeholder="Keterangan (opsional)" class="border border-gray-300 px-4 py-3 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out" />
+          <button id="tambahBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl shadow-md transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-semibold text-lg">Tambah Transaksi</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-xl p-6 border border-gray-200">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">🗓️ Periode Laporan</h2>
+        <div class="flex flex-col gap-4">
+          <select id="bulanFilter" class="border border-gray-300 px-4 py-3 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out"></select>
+          <select id="tahunFilter" class="border border-gray-300 px-4 py-3 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out"></select>
+          <button id="filterBtn" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-xl shadow-md transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 font-semibold text-lg">Tampilkan</button>
+          <button onclick="downloadPDF()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl shadow-md transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 font-semibold text-lg">
+            📥 Download PDF
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-gray-200">
+      <h2 class="text-2xl font-bold mb-4 text-gray-800">📊 Ringkasan Visual Transaksi (Bulan Ini)</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="relative h-80">
+          <canvas id="pieChart"></canvas>
+        </div>
+        <div class="relative h-80">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl p-6 mb-8 border border-gray-200">
+      <h2 class="text-2xl font-bold mb-5 text-gray-800">📘 Buku Besar Detail Transaksi (Bulan Ini)</h2>
+      <div id="bukuBesar" class="space-y-8"></div>
+      <p id="noTransactionsMessage" class="p-6 text-center text-gray-500 hidden">Tidak ada transaksi ditemukan untuk bulan ini. Mulai input transaksi baru!</p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl p-6 border border-gray-200" id="neracaSection">
+      <h2 class="text-2xl font-bold mb-5 text-gray-800">⚖️ Neraca Saldo (Bulan Ini)</h2>
+      <div class="overflow-x-auto rounded-lg border border-gray-200">
+        <table class="min-w-full text-sm bg-white">
+          <thead class="bg-blue-600 text-white">
+            <tr>
+              <th class="p-4 text-left font-bold">Akun</th>
+              <th class="p-4 text-right font-bold">Debit</th>
+              <th class="p-4 text-right font-bold">Kredit</th>
+            </tr>
+          </thead>
+          <tbody id="neracaSaldo" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="fixed top-6 right-6 z-50 space-y-3"></div>
+
+  <script>
+    const rekeningKey = 'transaksi_rekening_JAGO';
+    const rekeningNamaEl = document.getElementById('rekeningNama');
+    const saldoRekeningEl = document.getElementById('saldoRekening');
+    const bukuBesarContainer = document.getElementById('bukuBesar');
+    const neracaSaldoBody = document.getElementById('neracaSaldo');
+    const noTransactionsMessage = document.getElementById('noTransactionsMessage');
+    const nominalInputFormattedEl = document.getElementById('nominalInputFormatted');
+
+    const bulanFilterEl = document.getElementById('bulanFilter');
+    const tahunFilterEl = document.getElementById('tahunFilter');
+    const filterBtn = document.getElementById('filterBtn');
+
+    let transaksi = JSON.parse(localStorage.getItem(rekeningKey)) || [];
+
+    // --- Data Normalization / Migration Step ---
+    // Pastikan semua transaksi lama juga memiliki 'year' dan 'month'
+    let needsResave = false;
+    transaksi = transaksi.map(t => {
+        if (t.year === undefined || t.month === undefined) {
+            const date = new Date(t.tgl);
+            if (!isNaN(date.getTime())) {
+                t.year = date.getFullYear();
+                t.month = date.getMonth() + 1;
+                needsResave = true;
+            } else {
+                console.warn("Invalid date found in transaction, skipping:", t.tgl, "Transaction:", t);
+                return null;
+            }
+        }
+        return t;
+    }).filter(t => t !== null);
+
+    if (needsResave) {
+        simpanLocal(); 
+        console.log("Transaksi data normalized and saved with year/month properties.");
+    }
+    // --- End Data Normalization ---
+
+
+    const currentUrl = window.location.pathname;
+    const match = currentUrl.match(/rekening-(.*?)\.html/);
+    const displayedRekeningName = match ? match[1].charAt(0).toUpperCase() + match[1].slice(1) : 'Jago';
+    rekeningNamaEl.textContent = displayedRekeningName;
+
+    document.getElementById('tanggal').valueAsDate = new Date();
+
+    let currentFilterMonth = new Date().getMonth() + 1;
+    let currentFilterYear = new Date().getFullYear();
+
+    function populateFilterOptions() {
+      const months = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+      ];
+      
+      bulanFilterEl.innerHTML = months.map((m, i) => 
+        `<option value="${i + 1}" ${ (i + 1) === currentFilterMonth ? 'selected' : ''}>${m}</option>`
+      ).join('');
+
+      const currentYear = new Date().getFullYear();
+      let yearsHtml = '';
+      for (let i = currentYear - 5; i <= currentYear + 1; i++) {
+        yearsHtml += `<option value="${i}" ${i === currentFilterYear ? 'selected' : ''}>${i}</option>`;
+      }
+      tahunFilterEl.innerHTML = yearsHtml;
+    }
+
+    filterBtn.addEventListener('click', () => {
+      currentFilterMonth = parseInt(bulanFilterEl.value);
+      currentFilterYear = parseInt(tahunFilterEl.value);
+      renderAllFiltered();
+      showToast(`Laporan difilter untuk ${bulanFilterEl.options[bulanFilterEl.selectedIndex].text} ${currentFilterYear}`, "info");
+    });
+
+    function formatInputRupiah(inputElement) {
+        let value = inputElement.value.replace(/[^0-9]/g, '');
+        
+        if (value) {
+            inputElement.value = 'Rp ' + parseInt(value).toLocaleString('id-ID');
+        } else {
+            inputElement.value = '';
+        }
+    }
+
+    nominalInputFormattedEl.addEventListener('input', function(e) {
+      const start = e.target.selectionStart;
+      const oldLength = e.target.value.length;
+      formatInputRupiah(e.target);
+      const newLength = e.target.value.length;
+      const diff = newLength - oldLength;
+      e.target.setSelectionRange(start + diff, start + diff);
+    });
+
+    nominalInputFormattedEl.addEventListener('focus', function(e) {
+        if (!e.target.value) {
+            e.target.value = 'Rp ';
+        }
+    });
+
+    nominalInputFormattedEl.addEventListener('blur', function(e) {
+        if (e.target.value === 'Rp ' || e.target.value === '') {
+            e.target.value = '';
+        }
+    });
+
+
+    document.getElementById('tambahBtn').addEventListener('click', () => {
+      const tgl = document.getElementById('tanggal').value;
+      const akun = document.getElementById('akun').value.trim();
+      const jenis = document.getElementById('jenis').value;
+      
+      const nominalValueString = nominalInputFormattedEl.value.replace(/[^0-9]/g, '');
+      const nominal = parseFloat(nominalValueString); 
+
+      const ket = document.getElementById('keterangan').value.trim();
+
+      if (!tgl || !akun || isNaN(nominal) || nominal <= 0) {
+        showToast("❌ Lengkapi semua field wajib dan nominal harus angka positif!", "error");
+        return;
+      }
+
+      const date = new Date(tgl);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+
+      transaksi.push({ tgl, akun, jenis, nominal, ket, year, month });
+      simpanLocal();
+      showToast("Terimakasih sudah Input Transaksi Hari ini, Semoga harimu menyenangkan 🔥", "success");
+      renderAllFiltered();
+
+      document.getElementById('akun').value = '';
+      nominalInputFormattedEl.value = '';
+      document.getElementById('keterangan').value = '';
+    });
+
+    function showToast(pesan, type = 'success') {
+      const toastContainer = document.getElementById('toastContainer');
+      const warna = {
+        success: 'bg-green-600', error: 'bg-red-600', warning: 'bg-yellow-600', info: 'bg-blue-600'
+      };
+      const icon = {
+        success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️'
+      };
+      const div = document.createElement('div');
+      div.className = `${warna[type]} text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-slide-in-fade`;
+      div.innerHTML = `<span>${icon[type]}</span><span class="font-medium">${pesan}</span>`;
+      toastContainer.appendChild(div);
+      setTimeout(() => {
+        div.classList.add('opacity-0', 'translate-x-full');
+        setTimeout(() => div.remove(), 500);
+      }, 3500);
+    }
+
+    function simpanLocal() {
+      localStorage.setItem(rekeningKey, JSON.stringify(transaksi));
+    }
+
+    function hapus(originalIndex) {
+      if (confirm("Yakin ingin hapus data ini? Tindakan ini tidak bisa dibatalkan.")) {
+        transaksi.splice(originalIndex, 1);
+        simpanLocal();
+        showToast('Transaksi berhasil dihapus!', "info");
+        renderAllFiltered();
+      }
+    }
+
+    function edit(originalIndex) {
+      const t = transaksi[originalIndex];
+      document.getElementById('tanggal').value = t.tgl;
+      document.getElementById('akun').value = t.akun;
+      document.getElementById('jenis').value = t.jenis;
+      
+      nominalInputFormattedEl.value = formatRupiah(t.nominal); 
+      
+      document.getElementById('keterangan').value = t.ket;
+      
+      transaksi.splice(originalIndex, 1);
+      simpanLocal();
+      showToast('Data transaksi dimuat ke form. Edit dan klik "Tambah Transaksi" untuk menyimpan perubahan.', "info");
+    }
+
+    function renderAllFiltered() {
+      updateSaldoKeseluruhan();
+      const filteredTransactions = transaksi.filter(t => 
+        t.year === currentFilterYear && t.month === currentFilterMonth
+      );
+      updateBukuBesar(filteredTransactions);
+      updateNeraca(filteredTransactions);
+      updateCharts(filteredTransactions);
+    }
+
+    function formatRupiah(n) {
+      if (typeof n !== 'number' || isNaN(n)) {
+          n = 0;
+      }
+      return 'Rp ' + n.toLocaleString('id-ID');
+    }
+
+    function updateSaldoKeseluruhan() {
+      const total = transaksi.reduce((a, t) => a + (t.jenis === 'pemasukan' ? t.nominal : -t.nominal), 0);
+      saldoRekeningEl.textContent = formatRupiah(total);
+    }
+
+    function updateBukuBesar(filteredTransaksi) {
+      bukuBesarContainer.innerHTML = '';
+      const groupedByAkun = {};
+      
+      filteredTransaksi.forEach((t) => {
+        const originalIndex = transaksi.findIndex(item => 
+            item.tgl === t.tgl && 
+            item.akun === t.akun && 
+            item.jenis === t.jenis && 
+            item.nominal === t.nominal && 
+            item.ket === t.ket &&
+            item.year === t.year &&
+            item.month === t.month
+        );
+
+        if (!groupedByAkun[t.akun]) groupedByAkun[t.akun] = [];
+        if (originalIndex !== -1) {
+            groupedByAkun[t.akun].push({ ...t, originalIndex: originalIndex });
+        }
+      });
+
+      const sortedAkunNames = Object.keys(groupedByAkun).sort(); 
+
+      if (sortedAkunNames.length === 0) {
+        noTransactionsMessage.classList.remove('hidden');
+        return;
+      } else {
+        noTransactionsMessage.classList.add('hidden');
+      }
+
+      sortedAkunNames.forEach(akunName => {
+        const transactionsForAkun = groupedByAkun[akunName].sort((a, b) => new Date(b.tgl) - new Date(a.tgl));
+
+        let tableHtml = `<div class="mb-6 bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <h3 class="text-xl font-bold text-blue-700 mb-3">Akun: ${akunName}</h3>
+          <div class="overflow-x-auto rounded-lg border border-gray-200">
+            <table class="min-w-full text-sm bg-white">
+              <thead class="bg-blue-50 border-b border-blue-100">
+                <tr>
+                  <th class="p-3 text-left font-semibold text-blue-700">Tanggal</th>
+                  <th class="p-3 text-left font-semibold text-blue-700">Jenis</th>
+                  <th class="p-3 text-right font-semibold text-blue-700">Nominal</th>
+                  <th class="p-3 text-left font-semibold text-blue-700">Keterangan</th>
+                  <th class="p-3 text-center font-semibold text-blue-700">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">`;
+        
+        transactionsForAkun.forEach(t => {
+          tableHtml += `<tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+            <td class="p-3 font-medium">${t.tgl}</td>
+            <td class="p-3">${t.jenis === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'}</td>
+            <td class="p-3 text-right font-semibold ${t.jenis === 'pemasukan' ? 'text-green-700' : 'text-red-700'}">${formatRupiah(t.nominal)}</td>
+            <td class="p-3">${t.ket || '-'}</td>
+            <td class="p-3 text-center space-x-2">
+              <button onclick="edit(${t.originalIndex})" class="text-blue-600 hover:text-blue-800 font-medium text-sm">Edit</button>
+              <button onclick="hapus(${t.originalIndex})" class="text-red-600 hover:text-red-800 font-medium text-sm">Hapus</button>
+            </td>
+          </tr>`;
+        });
+        tableHtml += `</tbody></table></div></div>`;
+        bukuBesarContainer.innerHTML += tableHtml;
+      });
+    }
+
+    function updateNeraca(filteredTransaksi) {
+      const neraca = {};
+      filteredTransaksi.forEach(t => {
+        if (!neraca[t.akun]) neraca[t.akun] = { debit: 0, kredit: 0 };
+        if (t.jenis === 'pemasukan') neraca[t.akun].debit += t.nominal;
+        else neraca[t.akun].kredit += t.nominal;
+      });
+      neracaSaldoBody.innerHTML = '';
+      let totalDebit = 0;
+      let totalKredit = 0;
+      
+      const sortedAkun = Object.keys(neraca).sort(); 
+
+      sortedAkun.forEach(akun => {
+        const val = neraca[akun];
+        totalDebit += val.debit;
+        totalKredit += val.kredit;
+        neracaSaldoBody.innerHTML += `<tr class="border-t hover:bg-gray-50 transition duration-150 ease-in-out">
+          <td class="p-4 font-medium">${akun}</td>
+          <td class="p-4 text-right">${formatRupiah(val.debit)}</td>
+          <td class="p-4 text-right">${formatRupiah(val.kredit)}</td>
+        </tr>`;
+      });
+
+      const saldoAkhirDariBukuBesar = totalDebit - totalKredit; 
+      const currentAccountBalanceFiltered = filteredTransaksi.reduce((total, t) => total + (t.jenis === 'pemasukan' ? t.nominal : -t.nominal), 0);
+      const totalSelisih = saldoAkhirDariBukuBesar - currentAccountBalanceFiltered; 
+
+      neracaSaldoBody.innerHTML += `
+        <tr class="bg-blue-100 font-bold border-t-2 border-blue-200">
+          <td class="p-4 text-blue-800">TOTAL</td>
+          <td class="p-4 text-right text-blue-800">${formatRupiah(totalDebit)}</td>
+          <td class="p-4 text-right text-blue-800">${formatRupiah(totalKredit)}</td>
+        </tr>
+        <tr class="bg-yellow-100 font-semibold">
+          <td class="p-4 text-yellow-800">Saldo Akhir</td>
+          <td class="p-4"></td>
+          <td class="p-4 text-right ${saldoAkhirDariBukuBesar >= 0 ? 'text-green-700' : 'text-red-700'}">${formatRupiah(saldoAkhirDariBukuBesar)}</td>
+        </tr>
+        <tr class="bg-gray-200 font-semibold">
+          <td class="p-4 text-gray-800">Saldo Periode Ini</td>
+          <td class="p-4"></td>
+          <td class="p-4 text-right ${currentAccountBalanceFiltered >= 0 ? 'text-green-700' : 'text-red-700'}">${formatRupiah(currentAccountBalanceFiltered)}</td>
+        </tr>
+        <tr class="bg-purple-100 font-semibold">
+            <td class="p-4 text-purple-800">Selisih Saldo</td>
+            <td class="p-4"></td>
+            <td class="p-4 text-right ${Math.abs(totalSelisih) < 0.01 ? 'text-green-700' : 'text-red-700'}">${formatRupiah(totalSelisih)}</td>
+        </tr>
+      `;
+    }
+
+    let pieChart, barChart;
+    function updateCharts(filteredTransaksi) {
+      const pieChartCanvas = document.getElementById('pieChart');
+      const barChartCanvas = document.getElementById('barChart');
+
+      if (pieChart) {
+        pieChart.destroy();
+      }
+      if (barChart) {
+        barChart.destroy();
+      }
+
+      const totalPemasukan = filteredTransaksi.filter(t => t.jenis === 'pemasukan').reduce((a, b) => a + b.nominal, 0);
+      const totalPengeluaran = filteredTransaksi.filter(t => t.jenis === 'pengeluaran').reduce((a, b) => a + b.nominal, 0);
+
+      const pieData = {
+        labels: ['Pemasukan', 'Pengeluaran'],
+        datasets: [{
+          data: [totalPemasukan, totalPengeluaran],
+          backgroundColor: ['#14b8a6', '#ef4444'], 
+          hoverOffset: 4
+        }]
+      };
+
+      const pieCtx = pieChartCanvas.getContext('2d');
+      pieChart = new Chart(pieCtx, {
+        type: 'pie',
+        data: pieData,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false, 
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                font: { size: 13, family: 'Inter' },
+                color: '#334155'
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  let label = context.label || '';
+                  if (label) label += ': ';
+                  if (context.parsed !== null) {
+                    label += formatRupiah(context.parsed);
+                  }
+                  return label;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      const groupedByAkun = {};
+      filteredTransaksi.forEach(t => {
+          if (!groupedByAkun[t.akun]) {
+              groupedByAkun[t.akun] = { pemasukan: 0, pengeluaran: 0 };
+          }
+          groupedByAkun[t.akun][t.jenis] += t.nominal;
+      });
+
+      const labelsBar = Object.keys(groupedByAkun).sort(); 
+      const pemasukanBarData = labelsBar.map(l => groupedByAkun[l].pemasukan || 0);
+      const pengeluaranBarData = labelsBar.map(l => groupedByAkun[l].pengeluaran || 0);
+
+      const barData = {
+          labels: labelsBar,
+          datasets: [
+              {
+                  label: 'Pemasukan',
+                  data: pemasukanBarData,
+                  backgroundColor: '#3b82f6', 
+                  borderRadius: 4 
+              },
+              {
+                  label: 'Pengeluaran',
+                  data: pengeluaranBarData,
+                  backgroundColor: '#ef4444', 
+                  borderRadius: 4
+              }
+          ]
+      };
+
+      const barCtx = barChartCanvas.getContext('2d');
+      barChart = new Chart(barCtx, {
+          type: 'bar',
+          data: barData,
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                  x: {
+                      stacked: false, 
+                      ticks: { font: { family: 'Inter' }, color: '#334155' },
+                      grid: { display: false }
+                  },
+                  y: {
+                      beginAtZero: true,
+                      ticks: {
+                          callback: function(value) {
+                              return 'Rp ' + value.toLocaleString('id-ID');
+                          },
+                          font: { family: 'Inter' },
+                          color: '#334155'
+                      },
+                      grid: { color: '#e2e8f0' } 
+                  }
+              },
+              plugins: {
+                  legend: {
+                      position: 'top',
+                      labels: {
+                          font: { size: 13, family: 'Inter' },
+                          color: '#334155'
+                      }
+                  },
+                  tooltip: {
+                      callbacks: {
+                          label: function(context) {
+                              let label = context.dataset.label || '';
+                              if (label) label += ': ';
+                              if (context.parsed.y !== null) {
+                                  label += formatRupiah(context.parsed.y);
+                              }
+                              return label;
+                          }
+                      }
+                  }
+              }
+          }
+      });
+    }
+
+    async function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const rekeningName = rekeningNamaEl.textContent;
+      const saldoCurrentOverall = saldoRekeningEl.textContent;
+      const filteredTransactions = transaksi.filter(t => 
+        t.year === currentFilterYear && t.month === currentFilterMonth
+      );
+      const currentMonthName = bulanFilterEl.options[bulanFilterEl.selectedIndex].text;
+
+      doc.setFontSize(18);
+      doc.setTextColor(30, 144, 255); 
+      doc.text(`Laporan Rekening: ${rekeningName}`, 14, 20);
+      doc.setFontSize(12);
+      doc.setTextColor(51, 51, 51); 
+      doc.text(`Saldo Keseluruhan: ${saldoCurrentOverall}`, 14, 30);
+      doc.text(`Periode Laporan: ${currentMonthName} ${currentFilterYear}`, 14, 37);
+      doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID')}`, 14, 44);
+
+      let yOffset = 55; 
+
+      if (filteredTransactions.length === 0) {
+          showToast("Tidak ada transaksi untuk bulan ini yang dapat diekspor ke PDF!", "warning");
+          doc.setFontSize(14);
+          doc.setTextColor(150, 150, 150);
+          doc.text("Tidak ada transaksi ditemukan untuk periode ini.", 14, yOffset + 10);
+          doc.save(`laporan_rekening_${rekeningName.replace(/\s+/g, '_')}_${currentFilterYear}-${String(currentFilterMonth).padStart(2, '0')}.pdf`);
+          return;
+      }
+
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      doc.text("Buku Besar Detail Transaksi", 14, yOffset);
+      yOffset += 10;
+
+      const groupedByAkunForPdf = {};
+      const allTransactionsSortedForPdf = [...filteredTransactions].sort((a, b) => new Date(a.tgl) - new Date(b.tgl));
+
+      allTransactionsSortedForPdf.forEach(t => {
+          if (!groupedByAkunForPdf[t.akun]) groupedByAkunForPdf[t.akun] = [];
+          groupedByAkunForPdf[t.akun].push(t);
+      });
+
+      const sortedAkunForPdf = Object.keys(groupedByAkunForPdf).sort(); 
+
+      for (const akun of sortedAkunForPdf) {
+          const transactionsForAkun = groupedByAkunForPdf[akun];
+
+          if (yOffset + 20 > doc.internal.pageSize.getHeight() - 20) {
+              doc.addPage();
+              yOffset = 20;
+          }
+          doc.setFontSize(14);
+          doc.setTextColor(0, 0, 0); 
+          doc.text(`${akun}`, 14, yOffset); 
+          yOffset += 10;
+
+          const tableData = transactionsForAkun.map(t => [
+              t.tgl, 
+              t.jenis === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran',
+              formatRupiah(t.nominal),
+              t.ket || '-'
+          ]);
+
+          doc.autoTable({
+              startY: yOffset,
+              head: [['Tanggal', 'Jenis', 'Nominal', 'Keterangan']],
+              body: tableData,
+              theme: 'striped', 
+              headStyles: { fillColor: [63, 131, 248], textColor: [255, 255, 255], fontStyle: 'bold' }, 
+              styles: { fontSize: 9, cellPadding: 2, textColor: [38, 38, 38] },
+              columnStyles: {
+                  0: { cellWidth: 25 }, 
+                  1: { cellWidth: 25 }, 
+                  2: { cellWidth: 35, halign: 'right' }, 
+                  3: { cellWidth: 'auto', minCellWidth: 60 } 
+              },
+              didDrawPage: function (data) {
+                let str = "Page " + doc.internal.getNumberOfPages();
+                doc.setFontSize(10);
+                doc.setTextColor(150);
+                doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
+              }
+          });
+          yOffset = doc.autoTable.previous.finalY + 10; 
+      }
+
+      if (yOffset + 30 > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          yOffset = 20;
+      }
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      doc.text("Neraca Saldo", 14, yOffset);
+      yOffset += 10;
+
+      const neraca = {};
+      filteredTransactions.forEach(t => {
+        if (!neraca[t.akun]) neraca[t.akun] = { debit: 0, kredit: 0 };
+        if (t.jenis === 'pemasukan') neraca[t.akun].debit += t.nominal;
+        else neraca[t.akun].kredit += t.nominal;
+      });
+
+      let totalDebit = 0;
+      let totalKredit = 0;
+      
+      const neracaTableData = [];
+      const sortedNeracaAkun = Object.keys(neraca).sort();
+
+      sortedNeracaAkun.forEach(akun => {
+        const val = neraca[akun];
+        totalDebit += val.debit;
+        totalKredit += val.kredit;
+        neracaTableData.push([akun, formatRupiah(val.debit), formatRupiah(val.kredit)]);
+      });
+
+      const saldoAkhirDariBukuBesar = totalDebit - totalKredit; 
+      const currentAccountBalanceFiltered = filteredTransactions.reduce((total, t) => total + (t.jenis === 'pemasukan' ? t.nominal : -t.nominal), 0);
+      const totalSelisih = saldoAkhirDariBukuBesar - currentAccountBalanceFiltered; 
+
+      neracaTableData.push(
+        ['TOTAL', formatRupiah(totalDebit), formatRupiah(totalKredit)],
+        ['Saldo Akhir', '', formatRupiah(saldoAkhirDariBukuBesar)],
+        ['Saldo Periode Ini', '', formatRupiah(currentAccountBalanceFiltered)],
+        ['Selisih Saldo', '', formatRupiah(totalSelisih)]
+      );
+
+      doc.autoTable({
+          startY: yOffset,
+          head: [['Akun', 'Debit', 'Kredit']],
+          body: neracaTableData,
+          theme: 'striped',
+          headStyles: { fillColor: [63, 131, 248], textColor: [255, 255, 255], fontStyle: 'bold' },
+          styles: { fontSize: 9, cellPadding: 2, textColor: [38, 38, 38] },
+          columnStyles: {
+              0: { cellWidth: 70 }, 
+              1: { cellWidth: 60, halign: 'right' }, 
+              2: { cellWidth: 60, halign: 'right' } 
+          },
+          didDrawCell: function (data) {
+              if (data.row.section === 'body') {
+                  const rowData = neracaTableData[data.row.index];
+                  if (rowData[0] === 'TOTAL') {
+                      doc.setFont('helvetica', 'bold');
+                      doc.setFillColor(239, 246, 255);
+                  } else if (rowData[0] === 'Saldo Akhir') {
+                      doc.setFont('helvetica', 'bold');
+                      doc.setFillColor(255, 250, 230);
+                      if (saldoAkhirDariBukuBesar < 0) {
+                          doc.setTextColor(220, 38, 38);
+                      } else {
+                          doc.setTextColor(22, 163, 74);
+                      }
+                  } else if (rowData[0] === 'Saldo Periode Ini') {
+                      doc.setFont('helvetica', 'bold');
+                      doc.setFillColor(243, 244, 246);
+                      if (currentAccountBalanceFiltered < 0) {
+                          doc.setTextColor(220, 38, 38);
+                      } else {
+                          doc.setTextColor(22, 163, 74);
+                      }
+                  } else if (rowData[0] === 'Selisih Saldo') {
+                      doc.setFont('helvetica', 'bold');
+                      doc.setFillColor(245, 243, 255);
+                      if (Math.abs(totalSelisih) >= 0.01) {
+                          doc.setTextColor(220, 38, 38);
+                      } else {
+                          doc.setTextColor(22, 163, 74);
+                      }
+                  }
+              }
+          },
+          didDrawPage: function (data) {
+            let str = "Page " + doc.internal.getNumberOfPages();
+            doc.setFontSize(10);
+            doc.setTextColor(150);
+            doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
+          }
+      });
+
+      showToast("Laporan PDF berhasil dibuat!", "success");
+      doc.save(`laporan_rekening_${rekeningName.replace(/\s+/g, '_')}_${currentFilterYear}-${String(currentFilterMonth).padStart(2, '0')}.pdf`); 
+    }
+
+    populateFilterOptions();
+    renderAllFiltered();
+  </script>
+</body>
+</html>

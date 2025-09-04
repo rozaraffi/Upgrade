@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard Keuangan</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0u/z8hfdzLp2s/w/s2lA2K3n2G/e5lQ5/j8P/0G5f02fW6gN0I/J9QzTzQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'primary-blue': '#1a237e',
+            'secondary-blue': '#283593',
+            'accent-green': '#388e3c',
+            'accent-red': '#d32f2f',
+            'dark-gray': '#424242',
+            'light-gray': '#fafafa'
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #e0e0e0;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #757575;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #545454;
+    }
+    @keyframes slide-in-fade {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-slide-in-fade {
+      animation: slide-in-fade 0.4s ease-out forwards;
+    }
+    .transition-opacity { transition: opacity 0.3s ease-out; }
+    .transition-transform { transition: transform 0.3s ease-out; }
+    .scale-95 { transform: scale(0.95); }
+    .scale-100 { transform: scale(1); }
+    .opacity-0 { opacity: 0; }
+    .opacity-100 { opacity: 1; }
+    .chart-container {
+        /* Perbaikan: Atur ukuran chart agar lebih kecil dan pas di dalam div */
+        min-height: 250px;
+        height: 300px;
+        width: 100%;
+        position: relative;
+    }
+  </style>
+</head>
+<body class="bg-light-gray min-h-screen p-6 text-dark-gray">
+<div class="max-w-6xl mx-auto">
+  <h1 class="text-4xl font-extrabold mb-8 text-primary-blue text-center flex items-center justify-center gap-3">
+    <i class="fas fa-chart-pie text-secondary-blue"></i> Dashboard Keuangan Pribadi
+  </h1>
+
+  <div class="flex flex-wrap gap-4 mb-6 justify-center">
+    <select id="bulan" class="border border-gray-300 px-4 py-2 rounded-lg shadow-sm focus:ring-primary-blue focus:border-primary-blue transition duration-200 ease-in-out">
+      <option value="01">Januari</option><option value="02">Februari</option>
+      <option value="03">Maret</option><option value="04">April</option>
+      <option value="05">Mei</option><option value="06">Juni</option>
+      <option value="07">Juli</option><option value="08">Agustus</option>
+      <option value="09">September</option><option value="10">Oktober</option>
+      <option value="11">November</option><option value="12">Desember</option>
+    </select>
+    <select id="tahun" class="border border-gray-300 px-4 py-2 rounded-lg shadow-sm focus:ring-primary-blue focus:border-primary-blue transition duration-200 ease-in-out"></select>
+    <button id="downloadLaporanBulanan" class="bg-secondary-blue hover:bg-primary-blue text-white px-5 py-2 rounded-lg shadow-md transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:ring-offset-2 flex items-center gap-2">
+      <i class="fas fa-file-pdf"></i> Unduh Laporan Bulanan
+    </button>
+  </div>
+
+  <div class="bg-white shadow-xl rounded-2xl p-6 mb-8 text-center border-t-4 border-primary-blue">
+    <h2 class="text-2xl font-semibold text-dark-gray mb-3 flex items-center justify-center gap-2">
+      <i class="fas fa-wallet text-accent-green"></i> Total Kekayaan Anda
+    </h2>
+    <p class="text-4xl font-bold text-accent-green flex items-center justify-center gap-2">
+        <span id="displayTotalKekayaan">Rp 0</span>
+        <span class="toggle-visibility-btn text-primary-blue cursor-pointer text-3xl" data-target="all-nominal">&#128065;</span> </p>
+  </div>
+  
+  <div class="bg-white shadow-xl rounded-2xl p-6 mb-8 border-t-4 border-primary-blue flex justify-center">
+      <div id="chartContainer" class="w-full chart-container">
+        <h2 class="text-2xl font-semibold text-dark-gray mb-3 text-center flex items-center justify-center gap-2">
+          <i class="fas fa-chart-line text-primary-blue"></i> Perkembangan Saldo Tahunan
+        </h2>
+        <canvas id="balanceChart" class="w-full h-full"></canvas>
+      </div>
+  </div>
+
+  <h2 class="text-2xl font-bold mb-4 text-dark-gray flex items-center gap-2">
+    <i class="fas fa-credit-card text-gray-600"></i> Daftar Rekening
+  </h2>
+  <div id="rekeningList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8"></div>
+
+  <div class="bg-white shadow-lg rounded-xl p-6 mb-8 border-t-4 border-primary-blue">
+    <div class="flex justify-between items-center mb-5">
+      <h2 class="text-2xl font-semibold text-dark-gray flex items-center gap-2">
+        <i class="fas fa-sliders-h text-primary-blue"></i> Custom Kategori
+      </h2>
+      <button id="aturKategoriBtn" class="bg-primary-blue hover:bg-secondary-blue text-white px-4 py-2 rounded-lg shadow-md transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2 flex items-center gap-2">
+        <i class="fas fa-cog"></i> Atur Kategori
+      </button>
+    </div>
+    <div id="ringkasanKategoriKustom" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      </div>
+  </div>
+
+  <div class="bg-white shadow-lg rounded-xl p-6 mb-8 border-t-4 border-primary-blue">
+    <div class="flex justify-between items-center mb-5">
+      <h2 class="text-2xl font-semibold text-dark-gray flex items-center gap-2">
+        <i class="fas fa-money-bill-wave text-accent-green"></i> Anggaran Bulanan
+      </h2>
+      <button id="aturAnggaranBtn" class="bg-accent-green hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent-green focus:ring-offset-2 flex items-center gap-2">
+        <i class="fas fa-plus-circle"></i> Atur Anggaran
+      </button>
+    </div>
+    <div id="anggaranSummary" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <p class="text-gray-500 text-center col-span-full">Belum ada anggaran yang diatur untuk bulan ini.</p>
+    </div>
+  </div>
+  <div id="modalAturKategori" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-300 ease-out">
+    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95 transition-transform duration-300 ease-out">
+      <h3 class="text-2xl font-bold mb-5 text-dark-gray">Atur Kategori Kustom</h3>
+      <div id="kategoriInputContainer" class="max-h-80 overflow-y-auto pr-2">
+        </div>
+      <button id="tambahKategoriBtn" class="bg-primary-blue hover:bg-secondary-blue text-white px-4 py-2 rounded-lg mt-5 shadow-md transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2 flex items-center gap-2">
+        <i class="fas fa-plus-circle"></i> Tambah Kategori Baru
+      </button>
+      <div class="flex justify-end gap-3 mt-7">
+        <button type="button" id="tutupModalBtn" class="bg-gray-300 hover:bg-gray-400 text-dark-gray px-5 py-2 rounded-lg transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Batal</button>
+        <button type="button" id="simpanKategoriBtn" class="bg-accent-green hover:bg-green-700 text-white px-5 py-2 rounded-lg shadow-md transition duration-200 ease-in-out flex items-center gap-2 focus:outline-none focus:ring-2 focus->ring-accent-green focus:ring-offset-2">
+          <i class="fas fa-save"></i> Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalAturAnggaran" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-300 ease-out">
+    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95 transition-transform duration-300 ease-out">
+      <h3 class="text-2xl font-bold mb-5 text-dark-gray">Atur Anggaran Bulanan</h3>
+      <div id="anggaranInputContainer" class="max-h-80 overflow-y-auto pr-2">
+        </div>
+      <button type="button" id="tambahAnggaranInputBtn" class="bg-primary-blue hover:bg-secondary-blue text-white px-4 py-2 rounded-lg mt-5 shadow-md transition duration-200 ease-in-out flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2">
+        <i class="fas fa-plus-circle"></i> Tambah Anggaran
+      </button>
+      <div class="flex justify-end gap-3 mt-7">
+        <button type="button" id="tutupModalAnggaranBtn" class="bg-gray-300 hover:bg-gray-400 text-dark-gray px-5 py-2 rounded-lg transition duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Batal</button>
+        <button type="button" id="simpanAnggaranBtn" class="bg-accent-green hover:bg-green-700 text-white px-5 py-2 rounded-lg shadow-md transition duration-200 ease-in-out flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-accent-green focus:ring-offset-2">
+          <i class="fas fa-save"></i> Simpan Anggaran
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="bg-white shadow-lg rounded-xl p-6 border-t-4 border-primary-blue">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-4">
+      <h2 class="text-2xl font-semibold text-dark-gray flex items-center gap-2">
+        <i class="fas fa-receipt text-gray-600"></i> Transaksi Terbaru
+      </h2>
+      <div class="flex items-center gap-2">
+        <label for="jumlahTransaksi" class="text-dark-gray text-sm">Tampilkan:</label>
+        <select id="jumlahTransaksi" class="border border-gray-300 px-3 py-1 rounded-lg shadow-sm focus:ring-primary-blue focus:border-primary-blue text-sm">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-3 mb-5 justify-start"> <button id="addTransactionBtn" class="bg-primary-blue hover:bg-secondary-blue text-white px-4 py-2 rounded-lg shadow-md transition duration-200 ease-in-out text-sm flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2">
+          <i class="fas fa-plus"></i> Tambah Transaksi / Transfer
+      </button>
+      <button id="downloadExcel" class="bg-accent-green hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md transition duration-200 ease-in-out text-sm flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-accent-green focus:ring-offset-2">
+        <i class="fas fa-file-excel"></i> Excel
+      </button>
+      <button id="downloadPDF" class="bg-secondary-blue hover:bg-primary-blue text-white px-4 py-2 rounded-lg shadow-md transition duration-200 ease-in-out text-sm flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:ring-offset-2">
+        <i class="fas fa-file-pdf"></i> PDF
+      </button>
+      <button id="exportBackup" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg shadow-md transition duration-200 ease-in-out text-sm flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2">
+        <i class="fas fa-download"></i> Export
+      </button>
+      <label for="importBackup" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg shadow-md cursor-pointer transition duration-200 ease-in-out text-sm flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+        <i class="fas fa-upload"></i> Import
+        <input type="file" id="importBackup" class="hidden" accept=".json">
+      </label>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <input type="text" id="searchNama" placeholder="Cari nama akun..." class="border border-gray-300 px-4 py-2 rounded-lg shadow-sm focus:ring-primary-blue focus:border-primary-blue transition duration-200 ease-in-out">
+      <select id="filterKategori" class="border border-gray-300 px-4 py-2 rounded-lg shadow-sm focus:ring-primary-blue focus:border-primary-blue transition duration-200 ease-in-out">
+        <option value="">Semua Kategori</option>
+        </select>
+      <input type="date" id="startDate" class="border border-gray-300 px-4 py-2 rounded-lg shadow-sm focus:ring-primary-blue focus:border-primary-blue transition duration-200 ease-in-out">
+      <input type="date" id="endDate" class="border border-gray-300 px-4 py-2 rounded-lg shadow-sm focus:ring-primary-blue focus:border-primary-blue transition duration-200 ease-in-out">
+    </div>
+
+    <div class="overflow-x-auto rounded-lg border border-gray-200">
+      <table class="min-w-full text-sm bg-white" id="tabelTransaksi">
+        <thead class="bg-primary-blue text-white border-b border-primary-blue">
+          <tr>
+            <th class="text-left p-3 font-semibold">Tanggal</th>
+            <th class="text-left p-3 font-semibold">Rekening</th>
+            <th class="text-left p-3 font-semibold">Akun</th>
+            <th class="text-left p-3 font-semibold">Kategori</th>
+            <th class="text-right p-3 font-semibold">Nominal</th>
+            <th class="text-left p-3 font-semibold">Jenis</th>
+          </tr>
+        </thead>
+        <tbody id="transaksiTerakhir" class="divide-y divide-gray-100"></tbody>
+      </table>
+      <p id="noTransactionsMessage" class="p-4 text-center text-gray-500 hidden">Tidak ada transaksi yang ditemukan.</p>
+    </div>
+
+    <div class="flex justify-end mt-7">
+      <button id="resetData" class="bg-accent-red hover:bg-red-700 text-white px-5 py-2 rounded-lg shadow-md transition duration-200 ease-in-out flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-accent-red focus:ring-offset-2">
+        <i class="fas fa-undo-alt"></i> Reset Data
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer" class="fixed top-6 right-6 z-50 space-y-3"></div>
+
+<div id="modalAddTransaction" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-300 ease-out">
+  <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95 transition-transform duration-300 ease-out">
+    <h3 class="text-2xl font-bold mb-5 text-dark-gray">Tambah Transaksi Baru</h3>
+    <form id="transactionForm">
+      <div class="max-h-[60vh] overflow-y-auto pr-4 -mr-4"> <div class="mb-4">
+          <label for="transactionDate" class="block text-dark-gray text-sm font-bold mb-2">Tanggal:</label>
+          <input type="date" id="transactionDate" class="shadow appearance-none border rounded w-full py-2 px-3 text-dark-gray leading-tight focus:outline-none focus:shadow-outline" required>
+        </div>
+        <div class="mb-4">
+          <label for="transactionType" class="block text-dark-gray text-sm font-bold mb-2">Jenis:</label>
+          <select id="transactionType" class="shadow border rounded w-full py-2 px-3 text-dark-gray leading-tight focus:outline-none focus:shadow-outline" required>
+            <option value="pemasukan">Pemasukan</option>
+            <option value="pengeluaran">Pengeluaran</option>
+            <option value="transfer">Transfer</option>
+          </select>
+        </div>
+        <div class="mb-4" id="rekeningFromGroup">
+          <label for="rekeningFrom" class="block text-dark-gray text-sm font-bold mb-2">Rekening:</label> <select id="rekeningFrom" class="shadow border rounded w-full py-2 px-3 text-dark-gray leading-tight focus:outline-none focus:shadow-outline" required></select>
+        </div>
+        <div class="mb-4 hidden" id="rekeningToGroup">
+          <label for="rekeningTo" class="block text-dark-gray text-sm font-bold mb-2">Rekening Tujuan:</label>
+          <select id="rekeningTo" class="shadow border rounded w-full py-2 px-3 text-dark-gray leading-tight focus:outline-none focus:shadow-outline"></select>
+        </div>
+        <div class="mb-4">
+          <label for="transactionAccount" class="block text-dark-gray text-sm font-bold mb-2">Nama Akun/Item:</label>
+          <input type="text" id="transactionAccount" placeholder="Misal: Gaji, Kopi, Belanja" class="shadow appearance-none border rounded w-full py-2 px-3 text-dark-gray leading-tight focus:outline-none focus:shadow-outline" required>
+        </div>
+        <div class="mb-4" id="categoryGroup">
+          <label for="transactionCategory" class="block text-dark-gray text-sm font-bold mb-2">Kategori:</label>
+          <select id="transactionCategory" class="shadow border rounded w-full py-2 px-3 text-dark-gray leading-tight focus:outline-none focus:shadow-outline" required>
+              </select>
+        </div>
+        <div class="mb-4">
+          <label for="transactionNominal" class="block text-dark-gray text-sm font-bold mb-2">Nominal:</label>
+          <input type="text" id="transactionNominal" placeholder="Cth: 50.000" class="shadow appearance-none border rounded w-full py-2 px-3 text-dark-gray leading-tight focus:outline-none focus:shadow-outline" required>
+        </div>
+        
+        <div class="mb-4 hidden" id="transferFeeGroup">
+          <label for="transferFee" class="block text-dark-gray text-sm font-bold mb-2">Biaya Admin Transfer (Opsional):</label>
+          <input type="text" id="transferFee" placeholder="Cth: 2.500" class="shadow appearance-none border rounded w-full py-2 px-3 text-dark-gray leading-tight focus:outline-none focus:shadow-outline" value="0">
+          <div class="mt-2 text-sm">
+            <label class="inline-flex items-center mr-4">
+              <input type="radio" name="feePayer" value="sender" class="form-radio text-primary-blue" checked>
+              <span class="ml-2">Ditanggung Pengirim</span>
+            </label>
+            <label class="inline-flex items-center">
+              <input type="radio" name="feePayer" value="receiver" class="form-radio text-primary-blue">
+              <span class="ml-2">Ditanggung Penerima</span>
+            </label>
+          </div>
+        </div>
+        <div class="mb-6">
+          <label for="transactionDescription" class="block text-dark-gray text-sm font-bold mb-2">Deskripsi (Opsional):</label>
+          <textarea id="transactionDescription" rows="2" placeholder="Detail tambahan..." class="shadow appearance-none border rounded w-full py-2 px-3 text-dark-gray leading-tight focus:outline-none focus:shadow-outline"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-4"> <button type="button" id="cancelTransactionBtn" class="bg-gray-300 hover:bg-gray-400 text-dark-gray px-5 py-2 rounded-lg transition duration-200 ease-in-out">Batal</button>
+        <button type="submit" id="saveTransactionBtn" class="bg-primary-blue hover:bg-secondary-blue text-white px-5 py-2 rounded-lg shadow-md transition duration-200 ease-in-out">Simpan Transaksi</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+  // ====================================================================
+  // Perbaikan Utama: Memastikan `label` di `rekeningKeys` sesuai dengan teks opsi di select
+  // dan digunakan secara konsisten untuk membentuk kunci localStorage.
+  // ====================================================================
+  const rekeningKeys = [
+    { key: 'transaksi_rekening_Cash', label: 'Cash' },
+    { key: 'transaksi_rekening_BCA', label: 'BCA' },
+    { key: 'transaksi_rekening_JAGO', label: 'JAGO' },
+    { key: 'transaksi_rekening_DANA', label: 'DANA' },
+    { key: 'transaksi_rekening_DANA_Bisnis', label: 'DANA Bisnis' },
+    { key: 'transaksi_rekening_Shopeepay', label: 'Shopeepay' },
+    { key: 'transaksi_rekening_Gopay', label: 'Gopay' },
+    { key: 'transaksi_rekening_OVO', label: 'OVO' },
+    { key: 'transaksi_rekening_Ibu', label: 'Ibu' }
+  ];
+
+  const defaultAccountCategories = [
+    'Makanan & Minuman', 'Transportasi', 'Belanja', 'Pendidikan', 'Hiburan',
+    'Tagihan', 'Gaji', 'Investasi', 'Kesehatan', 'Lain-lain'
+  ];
+
+  let customAccountClassifications = JSON.parse(localStorage.getItem('customAccountClassifications')) || [];
+  let monthlyBudgets = JSON.parse(localStorage.getItem('monthlyBudgets')) || {};
+
+  const tahunEl = document.getElementById('tahun');
+  for (let y = new Date().getFullYear(); y <= new Date().getFullYear() + 10; y++) {
+    tahunEl.innerHTML += `<option value="${y}">${y}</option>`;
+  }
+  tahunEl.value = new Date().getFullYear();
+  document.getElementById('bulan').value = String(new Date().getMonth() + 1).padStart(2, '0');
+
+  const filterKategoriEl = document.getElementById('filterKategori');
+  function populateFilterCategories() {
+    filterKategoriEl.innerHTML = '<option value="">Semua Kategori</option>';
+    const allCategories = new Set([...defaultAccountCategories]);
+    customAccountClassifications.forEach(classification => allCategories.add(classification.categoryName));
+    
+    allCategories.add('Transfer Keluar');
+    allCategories.add('Transfer Masuk');
+    allCategories.add('Biaya Admin');
+
+    Array.from(allCategories).sort().forEach(category => {
+      filterKategoriEl.innerHTML += `<option value="${category}">${category}</option>`;
+    });
+  }
+  populateFilterCategories();
+
+  const originalFormatRupiah = function(n) {
+    const num = Number(n);
+    if (isNaN(num)) {
+      return "Rp 0";
+    }
+    const sign = num < 0 ? "-" : "";
+    const absoluteNum = Math.abs(num);
+    return `${sign}Rp ${absoluteNum.toLocaleString('id-ID')}`;
+  };
+
+  const parseRupiah = function(rupiahString) {
+      return parseInt(String(rupiahString).replace(/\D/g, ''), 10) || 0;
+  };
+
+  const formatRupiahInput = function(inputElement) {
+    let value = parseRupiah(inputElement.value);
+    if (value) {
+      inputElement.value = originalFormatRupiah(value).replace('Rp ', '');
+    } else {
+      inputElement.value = '';
+    }
+  };
+
+  let areNominalsVisible = false;
+  const nominalValueCache = new Map();
+
+  let formatRupiahDisplay = function(n) {
+      if (!areNominalsVisible) {
+          return 'Rp ********';
+      }
+      return originalFormatRupiah(n);
+  };
+
+  function getSaldoSebelumBulan(label, year, month) {
+    const key = `transaksi_rekening_${label.replace(/\s/g, '_')}`;
+    const data = JSON.parse(localStorage.getItem(key)) || [];
+    
+    const currentMonthStartDate = new Date(year, parseInt(month) - 1, 1);
+    currentMonthStartDate.setHours(0, 0, 0, 0); 
+
+    let saldo = 0;
+    data.forEach(t => {
+        const transactionDate = new Date(t.tgl);
+        transactionDate.setHours(0, 0, 0, 0); 
+
+        if (transactionDate < currentMonthStartDate) {
+            saldo += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal);
+        }
+    });
+    return saldo;
+  }
+
+  function getCustomCategoryForAccount(accountName) {
+    for (const classification of customAccountClassifications) {
+      if (classification.accounts.some(accKeyword => accountName.toLowerCase().includes(accKeyword.toLowerCase()))) {
+        return classification.categoryName;
+      }
+    }
+    return null;
+  }
+
+  function renderDashboard() {
+    const bulan = document.getElementById('bulan').value;
+    const tahun = document.getElementById('tahun').value;
+    const jumlah = +document.getElementById('jumlahTransaksi').value;
+    const searchNama = document.getElementById('searchNama').value.toLowerCase();
+    const filterKategori = document.getElementById('filterKategori').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+
+    const rekeningList = document.getElementById('rekeningList');
+    const transaksiEl = document.getElementById('transaksiTerakhir');
+    const noTransactionsMessage = document.getElementById('noTransactionsMessage');
+    rekeningList.innerHTML = '';
+    transaksiEl.innerHTML = '';
+
+    let totalSaldoGlobal = 0;
+    let allTransaksiForTableDisplay = []; 
+
+    rekeningKeys.forEach(({ key, label }) => {
+      const data = JSON.parse(localStorage.getItem(key)) || []; 
+      
+      let saldoAkhirRekeningIni = getSaldoSebelumBulan(label, tahun, bulan);
+
+      const filteredForCurrentMonthTransactions = data.filter(t => t.tgl.startsWith(`${tahun}-${bulan}`));
+      
+      filteredForCurrentMonthTransactions.forEach(t => {
+          saldoAkhirRekeningIni += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal);
+      });
+
+      if (label === 'Ibu') {
+          totalSaldoGlobal -= saldoAkhirRekeningIni;
+      } else {
+          totalSaldoGlobal += saldoAkhirRekeningIni;
+      }
+
+      allTransaksiForTableDisplay = allTransaksiForTableDisplay.concat(filteredForCurrentMonthTransactions.map(t => {
+        const customCat = getCustomCategoryForAccount(t.akun);
+        return { 
+            ...t, 
+            rekening: label, 
+            inferredKategori: customCat || t.kategori || '-',
+            deskripsi: String(t.deskripsi || '').trim() 
+        };
+      }));
+
+      const el = document.createElement('div');
+      el.className = 'bg-white rounded-xl shadow-md p-4 transition-transform transform hover:scale-103 hover:shadow-lg cursor-pointer border border-primary-blue';
+      el.onclick = () => window.location.href = `rekening-${label.toLowerCase().replace(/\s/g, '')}.html`;
+
+      const trueSaldoText = originalFormatRupiah(saldoAkhirRekeningIni);
+      nominalValueCache.set(`rekeningList-${label}`, trueSaldoText);
+
+      el.innerHTML = `<h3 class="font-bold text-dark-gray text-lg mb-1">${label}</h3><p class="text-accent-green font-extrabold text-2xl">${formatRupiahDisplay(saldoAkhirRekeningIni)}</p>`;
+      rekeningList.appendChild(el);
+    });
+
+    const trueTotalWealthText = originalFormatRupiah(totalSaldoGlobal);
+    nominalValueCache.set('displayTotalKekayaan', trueTotalWealthText);
+    document.getElementById('displayTotalKekayaan').textContent = formatRupiahDisplay(totalSaldoGlobal);
+
+    renderCustomCategorySummary(bulan, tahun);
+    renderBudgetSummary(bulan, tahun);
+    renderBalanceChart(); // Panggil fungsi grafik
+
+    let filteredTransactionsForTable = allTransaksiForTableDisplay.filter(t => {
+      const matchNama = t.akun.toLowerCase().includes(searchNama);
+      
+      let matchKategori = true;
+      if (filterKategori !== '') {
+        if (t.kategori && t.kategori.toLowerCase() === filterKategori.toLowerCase()) {
+            matchKategori = true;
+        } else if (t.inferredKategori && t.inferredKategori.toLowerCase() === filterKategori.toLowerCase()) {
+            matchKategori = true;
+        } else {
+            matchKategori = false;
+        }
+      }
+
+      const tgl = new Date(t.tgl);
+      const from = startDate ? new Date(startDate + 'T00:00:00') : null; 
+      const to = endDate ? new Date(endDate + 'T23:59:59') : null; 
+      const matchTanggal = (!from || tgl >= from) && (!to || tgl <= to);
+      
+      return matchNama && matchKategori && matchTanggal;
+    });
+
+    filteredTransactionsForTable.sort((a, b) => new Date(b.tgl) - new Date(a.tgl));
+
+    if (filteredTransactionsForTable.length > 0) {
+      transaksiEl.innerHTML = filteredTransactionsForTable.slice(0, jumlah).map((t, index) => {
+        const transactionId = `${t.tgl}-${t.rekening}-${t.nominal}-${index}`; 
+        const trueNominalText = originalFormatRupiah(t.nominal);
+        nominalValueCache.set(`transaksi-${transactionId}`, trueNominalText);
+
+        return `
+          <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
+            <td class="p-3">${t.tgl}</td>
+            <td class="p-3 font-medium">${t.rekening}</td>
+            <td class="p-3">${t.akun}</td>
+            <td class="p-3">${t.inferredKategori}</td>
+            <td class="p-3 text-right font-semibold ${t.jenis === 'pemasukan' ? 'text-accent-green' : 'text-accent-red'}" data-transaction-id="${transactionId}">${formatRupiahDisplay(t.nominal)}</td>
+            <td class="p-3">${t.jenis === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'}</td>
+          </tr>
+        `;
+      }).join('');
+      noTransactionsMessage.classList.add('hidden');
+    } else {
+      transaksiEl.innerHTML = '';
+      noTransactionsMessage.classList.remove('hidden');
+    }
+
+    const toggleButton = document.querySelector('.toggle-visibility-btn[data-target="all-nominal"]');
+    if (toggleButton) {
+        toggleButton.innerHTML = areNominalsVisible ? '&#128065;' : '&#128064;';
+    }
+  }
+
+  function toggleAllNominalVisibility() {
+      areNominalsVisible = !areNominalsVisible;
+      renderDashboard();
+  }
+
+  document.querySelector('.toggle-visibility-btn[data-target="all-nominal"]').addEventListener('click', toggleAllNominalVisibility);
+
+  const balanceChartCanvas = document.getElementById('balanceChart');
+  let balanceChartInstance = null;
+
+  function renderBalanceChart() {
+    const selectedYear = document.getElementById('tahun').value;
+    const monthlyBalances = getMonthlyBalancesForYear(selectedYear);
+
+    const labels = Object.keys(monthlyBalances);
+    const data = Object.values(monthlyBalances);
+
+    if (balanceChartInstance) {
+      balanceChartInstance.destroy();
+    }
+
+    balanceChartInstance = new Chart(balanceChartCanvas, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: `Saldo Akhir ${selectedYear}`,
+          data: data,
+          borderColor: '#1a237e',
+          backgroundColor: 'rgba(26, 35, 126, 0.2)',
+          fill: true,
+          tension: 0.3,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+              grid: {
+                  display: false
+              },
+              ticks: {
+                  display: true,
+                  font: {
+                      size: 10
+                  }
+              }
+          },
+          y: {
+              display: true,
+              beginAtZero: false, 
+              ticks: {
+                  display: true,
+                  callback: function(value) {
+                      return originalFormatRupiah(value).replace('Rp ', '');
+                  }
+              }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+              callbacks: {
+                  label: function(context) {
+                      return `${context.dataset.label}: ${originalFormatRupiah(context.raw)}`;
+                  }
+              }
+          }
+        }
+      }
+    });
+  }
+  
+  function getMonthlyBalancesForYear(year) {
+      const monthlyBalances = {};
+      const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+      
+      let totalSaldoAkhirTahunLalu = 0;
+      rekeningKeys.forEach(({ key, label }) => {
+          const data = JSON.parse(localStorage.getItem(key)) || [];
+          const lastYearTransactions = data.filter(t => new Date(t.tgl).getFullYear() < year);
+          
+          let saldoTahunLalu = 0;
+          lastYearTransactions.forEach(t => {
+              saldoTahunLalu += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal);
+          });
+
+          if (label === 'Ibu') {
+              totalSaldoAkhirTahunLalu -= saldoTahunLalu;
+          } else {
+              totalSaldoAkhirTahunLalu += saldoTahunLalu;
+          }
+      });
+
+      let runningTotal = totalSaldoAkhirTahunLalu;
+
+      for (let i = 0; i < 12; i++) {
+          const month = String(i + 1).padStart(2, '0');
+          const monthLabel = months[i];
+          
+          let netChangeForThisMonth = 0;
+          rekeningKeys.forEach(({ key, label }) => {
+              const data = JSON.parse(localStorage.getItem(key)) || [];
+              const transactionsForMonth = data.filter(t => t.tgl.startsWith(`${year}-${month}`));
+
+              let monthlyChangeForRekening = 0;
+              transactionsForMonth.forEach(t => {
+                  monthlyChangeForRekening += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal);
+              });
+              
+              if (label === 'Ibu') {
+                  netChangeForThisMonth -= monthlyChangeForRekening;
+              } else {
+                  netChangeForThisMonth += monthlyChangeForRekening;
+              }
+          });
+
+          runningTotal += netChangeForThisMonth;
+          monthlyBalances[monthLabel] = runningTotal;
+      }
+      return monthlyBalances;
+  }
+
+  // --- Custom Category Logic ---
+  const modalAturKategori = document.getElementById('modalAturKategori');
+  const aturKategoriBtn = document.getElementById('aturKategoriBtn');
+  const tutupModalBtn = document.getElementById('tutupModalBtn');
+  const tambahKategoriBtn = document.getElementById('tambahKategoriBtn');
+  const simpanKategoriBtn = document.getElementById('simpanKategoriBtn');
+  const kategoriInputContainer = document.getElementById('kategoriInputContainer');
+  const ringkasanKategoriKustomEl = document.getElementById('ringkasanKategoriKustom');
+
+  aturKategoriBtn.addEventListener('click', () => {
+    renderKategoriInputs();
+    modalAturKategori.classList.remove('hidden');
+    setTimeout(() => modalAturKategori.classList.add('opacity-100', 'scale-100'), 10);
+  });
+
+  tutupModalBtn.addEventListener('click', () => {
+    modalAturKategori.classList.remove('opacity-100', 'scale-100');
+    setTimeout(() => modalAturKategori.classList.add('hidden'), 300);
+  });
+
+  tambahKategoriBtn.addEventListener('click', () => {
+    addKategoriInput();
+    kategoriInputContainer.scrollTop = kategoriInputContainer.scrollHeight;
+  });
+
+  simpanKategoriBtn.addEventListener('click', () => {
+    saveKategoriSettings();
+    modalAturKategori.classList.remove('opacity-100', 'scale-100');
+    setTimeout(() => modalAturKategori.classList.add('hidden'), 300);
+    populateFilterCategories(); 
+    populateTransactionCategories();
+    renderDashboard(); 
+    showToast("Pengaturan kategori berhasil disimpan!", "success");
+  });
+
+  function renderKategoriInputs() {
+    kategoriInputContainer.innerHTML = '';
+    if (customAccountClassifications.length === 0) {
+      addKategoriInput(); 
+      return;
+    }
+
+    customAccountClassifications.forEach((classification, index) => {
+      addKategoriInput(classification.categoryName, classification.accounts.join(', '), index);
+    });
+  }
+
+  function addKategoriInput(categoryName = '', accounts = '', index = null) {
+    const div = document.createElement('div');
+    div.className = 'border border-gray-200 p-4 rounded-lg mb-4 bg-gray-50';
+    const uniqueId = index !== null ? index : Date.now();
+    div.innerHTML = `
+      <div class="flex justify-between items-center mb-3">
+        <label for="categoryName-${uniqueId}" class="font-medium text-dark-gray">Nama Kategori:</label>
+        ${index !== null ? `<button type="button" data-index="${uniqueId}" class="hapus-kategori-btn text-accent-red hover:text-red-700 font-bold text-lg leading-none focus:outline-none focus:ring-2 focus:ring-red-300 rounded-full px-2 py-1">-</button>` : ''}
+      </div>
+      <input type="text" id="categoryName-${uniqueId}" placeholder="Nama Kategori (misal: Pendapatan)" value="${categoryName}"
+             class="w-full border border-gray-300 px-3 py-2 rounded-md shadow-sm mb-3 focus:ring-primary-blue focus:border-primary-blue category-name-input">
+      <label for="accounts-${uniqueId}" class="font-medium text-dark-gray">Akun (pisahkan dengan koma):</label>
+      <input type="text" id="accounts-${uniqueId}" placeholder="Contoh: Gaji, Ceperan, Bonus" value="${accounts}"
+             class="w-full border border-gray-300 px-3 py-2 rounded-md shadow-sm focus:ring-primary-blue focus:border-primary-blue accounts-input">
+    `;
+    kategoriInputContainer.appendChild(div);
+
+    if (index !== null) {
+      const deleteButton = div.querySelector(`.hapus-kategori-btn[data-index="${uniqueId}"]`);
+      if (deleteButton) {
+        deleteButton.addEventListener('click', (e) => {
+          const idxToRemove = customAccountClassifications.findIndex(c => 
+            c.categoryName === categoryName && c.accounts.join(', ') === accounts
+          );
+          if (idxToRemove > -1) {
+            customAccountClassifications.splice(idxToRemove, 1); 
+            renderKategoriInputs(); 
+          }
+        });
+      }
+    }
+  }
+
+  function saveKategoriSettings() {
+    const newClassifications = [];
+    const categoryNameInputs = document.querySelectorAll('.category-name-input');
+    const accountsInputs = document.querySelectorAll('.accounts-input');
+
+    categoryNameInputs.forEach((nameInput, index) => {
+      const categoryName = nameInput.value.trim();
+      const accounts = accountsInputs[index].value.split(',').map(acc => acc.trim()).filter(acc => acc !== '');
+
+      if (categoryName && accounts.length > 0) {
+        newClassifications.push({ categoryName, accounts });
+      }
+    });
+
+    customAccountClassifications = newClassifications;
+    localStorage.setItem('customAccountClassifications', JSON.stringify(customAccountClassifications));
+  }
+
+  function renderCustomCategorySummary(currentMonth, currentYear) {
+    ringkasanKategoriKustomEl.innerHTML = '';
+
+    if (customAccountClassifications.length === 0) {
+      ringkasanKategoriKustomEl.innerHTML = '<p class="text-gray-500 text-center col-span-full">Belum ada kategori kustom yang diatur.</p>';
+      return;
+    }
+
+    customAccountClassifications.forEach(classification => {
+      let totalNominalForCategory = 0;
+      
+      rekeningKeys.forEach(({ key, label }) => {
+        const data = JSON.parse(localStorage.getItem(key)) || [];
+        const filteredTransactionsForRekening = data.filter(t => {
+          const transactionMonthYear = t.tgl.substring(0, 7); 
+          const currentMonthYear = `${currentYear}-${currentMonth}`;
+          
+          if (transactionMonthYear !== currentMonthYear) {
+            return false;
+          }
+          return classification.accounts.some(accountKeyword => 
+            t.akun.toLowerCase().includes(accountKeyword.toLowerCase())
+          );
+        });
+
+        filteredTransactionsForRekening.forEach(t => {
+          if (t.jenis === 'pemasukan') {
+            totalNominalForCategory += t.nominal;
+          } else if (t.jenis === 'pengeluaran') {
+            totalNominalForCategory += t.nominal;
+          }
+        });
+      });
+
+      const div = document.createElement('div');
+      div.className = 'bg-primary-blue-50 p-4 rounded-lg shadow-sm border border-primary-blue-100';
+      
+      const trueTotalNominalText = originalFormatRupiah(totalNominalForCategory);
+      nominalValueCache.set(`custom-${classification.categoryName}`, trueTotalNominalText);
+
+      div.innerHTML = `
+        <h4 class="font-semibold text-primary-blue text-lg mb-1">${classification.categoryName}</h4>
+        <p class="text-2xl font-bold ${totalNominalForCategory >= 0 ? 'text-accent-green' : 'text-accent-red'}">
+          ${formatRupiahDisplay(totalNominalForCategory)}
+        </p>
+      `;
+      ringkasanKategoriKustomEl.appendChild(div);
+    });
+  }
+
+  // --- NEW: Budgeting Logic ---
+  const modalAturAnggaran = document.getElementById('modalAturAnggaran');
+  const aturAnggaranBtn = document.getElementById('aturAnggaranBtn');
+  const tutupModalAnggaranBtn = document.getElementById('tutupModalAnggaranBtn');
+  const tambahAnggaranInputBtn = document.getElementById('tambahAnggaranInputBtn');
+  const simpanAnggaranBtn = document.getElementById('simpanAnggaranBtn');
+  const anggaranInputContainer = document.getElementById('anggaranInputContainer');
+  const anggaranSummaryEl = document.getElementById('anggaranSummary');
+
+  aturAnggaranBtn.addEventListener('click', () => {
+    const currentMonthYear = `${tahunEl.value}-${bulan.value}`;
+    renderAnggaranInputs(currentMonthYear);
+    modalAturAnggaran.classList.remove('hidden');
+    setTimeout(() => modalAturAnggaran.classList.add('opacity-100', 'scale-100'), 10);
+  });
+
+  tutupModalAnggaranBtn.addEventListener('click', () => {
+    modalAturAnggaran.classList.remove('opacity-100', 'scale-100');
+    setTimeout(() => modalAturAnggaran.classList.add('hidden'), 300);
+  });
+
+  tambahAnggaranInputBtn.addEventListener('click', () => {
+    addAnggaranInput();
+    anggaranInputContainer.scrollTop = anggaranInputContainer.scrollHeight;
+  });
+
+  simpanAnggaranBtn.addEventListener('click', () => {
+    saveAnggaranSettings();
+    modalAturAnggaran.classList.remove('opacity-100', 'scale-100');
+    setTimeout(() => modalAturAnggaran.classList.add('hidden'), 300);
+    renderDashboard();
+    showToast("Pengaturan anggaran berhasil disimpan!", "success");
+  });
+
+  function renderAnggaranInputs(currentMonthYear) {
+    anggaranInputContainer.innerHTML = '';
+    const currentMonthBudget = monthlyBudgets[currentMonthYear] || [];
+
+    if (currentMonthBudget.length === 0) {
+      addAnggaranInput(); 
+      return;
+    }
+
+    currentMonthBudget.forEach((budget, index) => {
+      addAnggaranInput(budget.category, budget.amount, index);
+    });
+  }
+
+  function addAnggaranInput(category = '', amount = '', index = null) {
+    const div = document.createElement('div');
+    div.className = 'border border-gray-200 p-4 rounded-lg mb-4 bg-gray-50 anggaran-item';
+    const uniqueId = index !== null ? index : Date.now();
+
+    const allCategoriesSet = new Set(defaultAccountCategories);
+    customAccountClassifications.forEach(classification => allCategoriesSet.add(classification.categoryName));
+    
+    const categoriesForBudgeting = Array.from(allCategoriesSet).filter(cat => 
+        !['Transfer Keluar', 'Transfer Masuk', 'Biaya Admin'].includes(cat)
+    );
+
+    const categoryOptions = categoriesForBudgeting
+        .sort()
+        .map(cat => `<option value="${cat}" ${cat === category ? 'selected' : ''}>${cat}</option>`)
+        .join('');
+
+    div.innerHTML = `
+      <div class="flex justify-between items-center mb-3">
+        <label for="budgetCategory-${uniqueId}" class="font-medium text-dark-gray">Kategori:</label>
+        ${index !== null ? `<button type="button" data-index="${uniqueId}" class="hapus-anggaran-btn text-accent-red hover:text-red-700 font-bold text-lg leading-none focus:outline-none focus:ring-2 focus:ring-red-300 rounded-full px-2 py-1">-</button>` : ''}
+      </div>
+      <select id="budgetCategory-${uniqueId}" class="w-full border border-gray-300 px-3 py-2 rounded-md shadow-sm mb-3 focus:ring-primary-blue focus:border-primary-blue budget-category-select">
+        <option value="">Pilih Kategori</option>
+        ${categoryOptions}
+      </select>
+      <label for="budgetAmount-${uniqueId}" class="font-medium text-dark-gray">Nominal Anggaran:</label>
+      <input type="text" id="budgetAmount-${uniqueId}" placeholder="Contoh: 1.000.000" value="${amount ? originalFormatRupiah(amount).replace('Rp ', '') : ''}"
+             class="w-full border border-gray-300 px-3 py-2 rounded-md shadow-sm focus:ring-primary-blue focus:border-primary-blue budget-amount-input" min="0">
+    `;
+    anggaranInputContainer.appendChild(div);
+
+    const budgetAmountInput = div.querySelector(`#budgetAmount-${uniqueId}`);
+    budgetAmountInput.addEventListener('input', () => {
+        let value = budgetAmountInput.value.replace(/\D/g, '');
+        if (value) {
+            budgetAmountInput.value = parseInt(value, 10).toLocaleString('id-ID');
+        } else {
+            budgetAmountInput.value = '';
+        }
+    });
+
+    const deleteButton = div.querySelector(`.hapus-anggaran-btn[data-index="${uniqueId}"]`);
+    if (deleteButton) {
+        deleteButton.addEventListener('click', () => {
+            const currentMonthYear = `${tahunEl.value}-${bulan.value}`;
+            let currentMonthBudget = monthlyBudgets[currentMonthYear] || [];
+            
+            currentMonthBudget = currentMonthBudget.filter(b => !(b.category === category && b.amount === amount));
+            monthlyBudgets[currentMonthYear] = currentMonthBudget;
+            localStorage.setItem('monthlyBudgets', JSON.stringify(monthlyBudgets));
+            div.remove();
+            showToast("Anggaran kategori berhasil dihapus!", "info");
+        });
+    }
+  }
+
+  function saveAnggaranSettings() {
+    const currentMonthYear = `${tahunEl.value}-${bulan.value}`;
+    const newMonthBudgets = [];
+    const budgetCategorySelects = document.querySelectorAll('.budget-category-select');
+    const budgetAmountInputs = document.querySelectorAll('.budget-amount-input');
+
+    budgetCategorySelects.forEach((catSelect, index) => {
+      const category = catSelect.value.trim();
+      const amount = parseRupiah(budgetAmountInputs[index].value);
+
+      if (category && category !== "" && !isNaN(amount) && amount >= 0) {
+        newMonthBudgets.push({ category, amount });
+      }
+    });
+
+    monthlyBudgets[currentMonthYear] = newMonthBudgets;
+    localStorage.setItem('monthlyBudgets', JSON.stringify(newMonthBudgets));
+  }
+
+  function renderBudgetSummary(currentMonth, currentYear) {
+    anggaranSummaryEl.innerHTML = '';
+    const currentMonthYear = `${currentYear}-${currentMonth}`;
+    const budgetsForThisMonth = monthlyBudgets[currentMonthYear] || [];
+
+    if (budgetsForThisMonth.length === 0) {
+      anggaranSummaryEl.innerHTML = '<p class="text-gray-500 text-center col-span-full">Belum ada anggaran yang diatur untuk bulan ini.</p>';
+      return;
+    }
+
+    const categoryActualSpending = {};
+
+    rekeningKeys.forEach(({ key, label }) => {
+      const data = JSON.parse(localStorage.getItem(key)) || [];
+      const filteredTransactionsForRekening = data.filter(t => {
+        const transactionMonthYear = t.tgl.substring(0, 7); 
+        return transactionMonthYear === currentMonthYear && t.jenis === 'pengeluaran'; 
+      });
+
+      filteredTransactionsForRekening.forEach(t => {
+        const inferredCat = getCustomCategoryForAccount(t.akun) || t.kategori || 'Lain-lain';
+        if (inferredCat !== 'Transfer Keluar' && inferredCat !== 'Transfer Masuk' && inferredCat !== 'Biaya Admin') {
+            if (!categoryActualSpending[inferredCat]) {
+                categoryActualSpending[inferredCat] = 0;
+            }
+            categoryActualSpending[inferredCat] += t.nominal;
+        }
+      });
+    });
+
+    budgetsForThisMonth.forEach(budget => {
+      const category = budget.category;
+      const budgetedAmount = budget.amount;
+      const actualSpending = categoryActualSpending[category] || 0;
+      const remaining = budgetedAmount - actualSpending;
+      const percentageUsed = budgetedAmount > 0 ? (actualSpending / budgetedAmount) * 100 : 0;
+
+      let progressBarColor = 'bg-accent-green';
+      if (percentageUsed >= 90) {
+        progressBarColor = 'bg-accent-red';
+      } else if (percentageUsed >= 70) {
+        progressBarColor = 'bg-yellow-500';
+      }
+
+      const div = document.createElement('div');
+      div.className = 'bg-white p-4 rounded-lg shadow-sm border-l-4 border-gray-200';
+      
+      const trueActualSpendingText = originalFormatRupiah(actualSpending);
+      const trueRemainingText = originalFormatRupiah(remaining);
+      nominalValueCache.set(`budget-used-${category}`, trueActualSpendingText);
+      nominalValueCache.set(`budget-remaining-${category}`, trueRemainingText);
+
+      div.innerHTML = `
+        <h4 class="font-semibold text-dark-gray text-lg mb-1">${category}</h4>
+        <p class="text-sm text-gray-600 mb-2">Anggaran: ${originalFormatRupiah(budgetedAmount)}</p>
+        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+          <div class="${progressBarColor} h-2.5 rounded-full" style="width: ${Math.min(100, percentageUsed)}%"></div>
+        </div>
+        <p class="text-sm text-gray-600 mb-1">Terpakai: <span class="font-bold text-xl">${formatRupiahDisplay(actualSpending)}</span></p>
+        <p class="text-sm text-gray-600">Sisa: <span class="font-bold text-xl ${remaining >= 0 ? 'text-accent-green' : 'text-accent-red'}">${formatRupiahDisplay(remaining)}</span></p>
+      `;
+      anggaranSummaryEl.appendChild(div);
+    });
+  }
+
+  // --- NEW: Add Transaction / Transfer Modal Logic ---
+  const addTransactionBtn = document.getElementById('addTransactionBtn');
+  const modalAddTransaction = document.getElementById('modalAddTransaction');
+  const cancelTransactionBtn = document.getElementById('cancelTransactionBtn');
+  const transactionForm = document.getElementById('transactionForm');
+  const transactionTypeSelect = document.getElementById('transactionType');
+  const rekeningFromSelect = document.getElementById('rekeningFrom');
+  const rekeningToSelect = document.getElementById('rekeningTo');
+  const rekeningFromGroup = document.getElementById('rekeningFromGroup');
+  const rekeningToGroup = document.getElementById('rekeningToGroup');
+  const transactionCategorySelect = document.getElementById('transactionCategory');
+  const categoryGroup = document.getElementById('categoryGroup');
+  const transactionAccountInput = document.getElementById('transactionAccount');
+  const transactionNominalInput = document.getElementById('transactionNominal');
+  const transactionDescriptionInput = document.getElementById('transactionDescription');
+  const transferFeeGroup = document.getElementById('transferFeeGroup'); 
+  const transferFeeInput = document.getElementById('transferFee');
+
+  function populateRekeningSelects() {
+    rekeningFromSelect.innerHTML = '';
+    rekeningToSelect.innerHTML = ''; 
+    rekeningKeys.forEach(({ label }) => {
+      const optionFrom = document.createElement('option');
+      optionFrom.value = label;
+      optionFrom.textContent = label;
+      rekeningFromSelect.appendChild(optionFrom);
+
+      const optionTo = document.createElement('option');
+      optionTo.value = label;
+      optionTo.textContent = label;
+      rekeningToSelect.appendChild(optionTo);
+    });
+  }
+
+  function populateTransactionCategories() {
+      transactionCategorySelect.innerHTML = '';
+      const allCategories = new Set([...defaultAccountCategories]);
+      customAccountClassifications.forEach(classification => allCategories.add(classification.categoryName));
+      
+      const regularCategories = Array.from(allCategories).filter(cat => !['Transfer Keluar', 'Transfer Masuk', 'Biaya Admin'].includes(cat));
+
+      regularCategories.sort().forEach(category => {
+          const option = document.createElement('option');
+          option.value = category;
+          option.textContent = category;
+          transactionCategorySelect.appendChild(option);
+      });
+  }
+
+  transactionNominalInput.addEventListener('input', () => {
+    let value = transactionNominalInput.value.replace(/\D/g, ''); 
+    if (value) {
+      transactionNominalInput.value = parseInt(value, 10).toLocaleString('id-ID');
+    } else {
+      transactionNominalInput.value = '';
+    }
+  });
+
+  transferFeeInput.addEventListener('input', () => {
+    let value = transferFeeInput.value.replace(/\D/g, ''); 
+    if (value) {
+      transferFeeInput.value = parseInt(value, 10).toLocaleString('id-ID');
+    } else {
+      transferFeeInput.value = '';
+    }
+  });
+
+
+  addTransactionBtn.addEventListener('click', () => {
+    populateRekeningSelects();
+    populateTransactionCategories(); 
+    
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    document.getElementById('transactionDate').value = `${yyyy}-${mm}-${dd}`;
+
+    transactionForm.reset();
+    transactionTypeSelect.value = 'pengeluaran'; 
+    transferFeeInput.value = '0';
+    document.querySelector('input[name="feePayer"][value="sender"]').checked = true;
+    updateTransactionFormVisibility(); 
+
+    modalAddTransaction.classList.remove('hidden');
+    setTimeout(() => modalAddTransaction.classList.add('opacity-100', 'scale-100'), 10);
+  });
+
+  cancelTransactionBtn.addEventListener('click', () => {
+    modalAddTransaction.classList.remove('opacity-100', 'scale-100');
+    setTimeout(() => modalAddTransaction.classList.add('hidden'), 300);
+  });
+
+  transactionTypeSelect.addEventListener('change', updateTransactionFormVisibility);
+
+  function updateTransactionFormVisibility() {
+    const type = transactionTypeSelect.value;
+
+    if (type === 'transfer') {
+      rekeningFromGroup.querySelector('label').textContent = 'Rekening Asal:';
+      rekeningToGroup.classList.remove('hidden');
+      transferFeeGroup.classList.remove('hidden'); 
+      categoryGroup.classList.add('hidden'); 
+      transactionCategorySelect.removeAttribute('required');
+      transactionAccountInput.setAttribute('placeholder', 'Deskripsi Transfer (Opsional)'); 
+      transactionAccountInput.value = ''; 
+      transactionAccountInput.removeAttribute('required'); 
+    } else {
+      rekeningFromGroup.querySelector('label').textContent = 'Rekening:';
+      rekeningToGroup.classList.add('hidden');
+      transferFeeGroup.classList.add('hidden'); 
+      categoryGroup.classList.remove('hidden'); 
+      transactionCategorySelect.setAttribute('required', 'required');
+      transactionAccountInput.setAttribute('placeholder', 'Misal: Gaji, Kopi, Belanja');
+      transactionAccountInput.setAttribute('required', 'required'); 
+    }
+  }
+
+  transactionForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const date = document.getElementById('transactionDate').value;
+    const type = transactionTypeSelect.value;
+    const nominal = parseRupiah(transactionNominalInput.value); 
+    const description = transactionDescriptionInput.value.trim();
+    const transferFee = parseRupiah(transferFeeInput.value); 
+    const feePayer = document.querySelector('input[name="feePayer"]:checked')?.value; 
+
+    if (isNaN(nominal) || nominal <= 0) {
+      showToast("Nominal harus angka positif.", "error");
+      return;
+    }
+    if (isNaN(transferFee) || transferFee < 0) {
+        showToast("Biaya admin tidak valid.", "error");
+        return;
+    }
+
+    if (type === 'transfer') {
+      const rekeningFromLabel = rekeningFromSelect.value;
+      const rekeningToLabel = rekeningToSelect.value;
+
+      const rekeningFromKey = `transaksi_rekening_${rekeningFromLabel.replace(/\s/g, '_')}`;
+      const rekeningToKey = `transaksi_rekening_${rekeningToLabel.replace(/\s/g, '_')}`;
+
+      if (rekeningFromLabel === rekeningToLabel) {
+        showToast("Rekening asal dan tujuan tidak boleh sama.", "error");
+        return;
+      }
+
+      let dataFrom = JSON.parse(localStorage.getItem(rekeningFromKey)) || [];
+      let dataTo = JSON.parse(localStorage.getItem(rekeningToKey)) || [];
+
+      dataFrom.push({
+        tgl: date,
+        akun: `Transfer ke ${rekeningToLabel}` + (description ? ` - ${description}` : ''),
+        kategori: 'Transfer Keluar',
+        nominal: nominal,
+        jenis: 'pengeluaran',
+        deskripsi: description
+      });
+
+      let actualNominalReceived = nominal;
+      if (transferFee > 0 && feePayer === 'receiver') {
+          actualNominalReceived = nominal - transferFee;
+          if (actualNominalReceived < 0) { 
+              showToast("Nominal transfer kurang dari biaya admin saat ditanggung penerima. Transaksi dibatalkan.", "error");
+              return;
+          }
+      }
+
+      dataTo.push({
+        tgl: date,
+        akun: `Transfer dari ${rekeningFromLabel}` + (description ? ` - ${description}` : ''),
+        kategori: 'Transfer Masuk',
+        nominal: actualNominalReceived,
+        jenis: 'pemasukan',
+        deskripsi: description
+      });
+
+      if (transferFee > 0) {
+        if (feePayer === 'sender') {
+          dataFrom.push({
+            tgl: date,
+            akun: `Biaya Admin Transfer ke ${rekeningToLabel}`,
+            kategori: 'Biaya Admin',
+            nominal: transferFee,
+            jenis: 'pengeluaran',
+            deskripsi: `Biaya admin transfer ditanggung pengirim untuk ${description}`
+          });
+          showToast(`Transfer sebesar ${originalFormatRupiah(nominal)} dengan biaya admin ${originalFormatRupiah(transferFee)} ditanggung pengirim berhasil!`, "success");
+        } else if (feePayer === 'receiver') {
+          dataTo.push({
+            tgl: date,
+            akun: `Biaya Admin Transfer dari ${rekeningFromLabel}`,
+            kategori: 'Biaya Admin',
+            nominal: transferFee,
+            jenis: 'pengeluaran',
+            deskripsi: `Biaya admin transfer ditanggung penerima untuk ${description}`
+          });
+          showToast(`Transfer sebesar ${originalFormatRupiah(nominal)} dengan biaya admin ${originalFormatRupiah(transferFee)} ditanggung penerima berhasil!`, "success");
+        }
+      } else {
+        showToast(`Transfer sebesar ${originalFormatRupiah(nominal)} berhasil!`, "success");
+      }
+      
+      localStorage.setItem(rekeningFromKey, JSON.stringify(dataFrom));
+      localStorage.setItem(rekeningToKey, JSON.stringify(dataTo));
+
+    } else {
+      const rekeningLabel = rekeningFromSelect.value; 
+      const rekeningKey = `transaksi_rekening_${rekeningLabel.replace(/\s/g, '_')}`;
+      const accountName = transactionAccountInput.value.trim();
+      const category = transactionCategorySelect.value;
+
+      if (!accountName || !category) {
+          showToast("Nama akun dan kategori harus diisi.", "error");
+          return;
+      }
+
+      let data = JSON.parse(localStorage.getItem(rekeningKey)) || [];
+      data.push({
+        tgl: date,
+        akun: accountName,
+        kategori: category,
+        nominal: nominal,
+        jenis: type,
+        deskripsi: description
+      });
+      localStorage.setItem(rekeningKey, JSON.stringify(data));
+      showToast("Transaksi berhasil ditambahkan!", "success");
+    }
+
+    modalAddTransaction.classList.remove('opacity-100', 'scale-100');
+    setTimeout(() => modalAddTransaction.classList.add('hidden'), 300);
+    renderDashboard();
+  });
+
+  // --- Export/Import & Reset Functions ---
+  document.getElementById('downloadExcel').addEventListener('click', function () {
+    const wb = XLSX.utils.book_new();
+    const bulan = document.getElementById('bulan').value;
+    const tahun = document.getElementById('tahun').value;
+    let allData = [];
+
+    rekeningKeys.forEach(({ key, label }) => {
+      const data = JSON.parse(localStorage.getItem(key)) || [];
+      const filtered = data.filter(t => t.tgl.startsWith(`${tahun}-${bulan}`));
+      filtered.forEach(d => {
+        const customCat = getCustomCategoryForAccount(d.akun);
+        allData.push({ 
+            Tanggal: d.tgl, 
+            Rekening: label, 
+            Akun: d.akun, 
+            Kategori: customCat || d.kategori || '-', 
+            Keterangan: String(d.deskripsi || '').trim(), 
+            Nominal: d.nominal, 
+            Jenis: d.jenis 
+        });
+      });
+    });
+
+    if (allData.length === 0) return showToast("Tidak ada data untuk diekspor!", "warning");
+
+    const ws = XLSX.utils.json_to_sheet(allData);
+    XLSX.utils.book_append_sheet(wb, ws, "Transaksi");
+    const fileName = `Transaksi-${tahun}-${bulan}-${new Date().getDate()}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    showToast("Data berhasil diekspor ke Excel!", "success");
+  });
+
+  document.getElementById('downloadPDF').addEventListener('click', function () {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const bulan = document.getElementById('bulan').value;
+    const namaBulan = new Date(2000, parseInt(bulan) - 1, 1).toLocaleString('id-ID', { month: 'long' });
+    const tahun = document.getElementById('tahun').value;
+
+    let allData = [];
+
+    rekeningKeys.forEach(({ key, label }) => {
+      const data = JSON.parse(localStorage.getItem(key)) || [];
+      const filtered = data.filter(t => t.tgl.startsWith(`${tahun}-${bulan}`));
+      filtered.forEach(d => {
+        const customCat = getCustomCategoryForAccount(d.akun);
+        allData.push({ 
+            tgl: d.tgl, 
+            rekening: label, 
+            akun: d.akun, 
+            kategori: customCat || d.kategori || '-', 
+            deskripsi: String(d.deskripsi || '').trim(), 
+            nominal: d.nominal, 
+            jenis: d.jenis 
+        });
+      });
+    });
+
+    if (allData.length === 0) return showToast("Tidak ada data untuk diekspor!", "warning");
+
+    allData.sort((a, b) => new Date(b.tgl) - new Date(a.tgl));
+
+    const rows = allData.map(d => [
+      d.tgl,
+      d.rekening,
+      d.akun,
+      d.kategori,
+      d.deskripsi, 
+      originalFormatRupiah(d.nominal),
+      d.jenis === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'
+    ]);
+
+    doc.text(`Laporan Transaksi Keuangan Bulan ${namaBulan} Tahun ${tahun}`, 14, 15);
+    doc.autoTable({
+      startY: 25,
+      head: [['Tanggal', 'Rekening', 'Akun', 'Kategori', 'Keterangan', 'Nominal', 'Jenis']],
+      body: rows,
+      theme: 'grid', 
+      headStyles: { fillColor: [26, 35, 126] }, 
+      styles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: {
+        5: { halign: 'right' } 
+      }
+    });
+
+    const fileName = `Transaksi-${tahun}-${bulan}-${new Date().getDate()}.pdf`;
+    doc.save(fileName);
+    showToast("Data transaksi berhasil diekspor ke PDF!", "success");
+  });
+
+  document.getElementById('downloadLaporanBulanan').addEventListener('click', function() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const bulan = document.getElementById('bulan').value;
+    const namaBulan = new Date(2000, parseInt(bulan) - 1, 1).toLocaleString('id-ID', { month: 'long' });
+    const tahun = document.getElementById('tahun').value;
+
+    let totalPemasukanBulanIni = 0;
+    let totalPengeluaranBulanIni = 0;
+    const kategoriSummary = {}; 
+    const rekeningSaldoAwal = {};
+    const rekeningSaldoAkhir = {};
+
+    let allTransactionsInMonth = [];
+
+    rekeningKeys.forEach(({ key, label }) => {
+        rekeningSaldoAwal[label] = getSaldoSebelumBulan(label, tahun, bulan); 
+        
+        const data = JSON.parse(localStorage.getItem(key)) || [];
+        const filteredForCurrentMonth = data.filter(t => t.tgl.startsWith(`${tahun}-${bulan}`));
+        
+        allTransactionsInMonth = allTransactionsInMonth.concat(
+            filteredForCurrentMonth.map(t => ({ ...t, rekening: label }))
+        );
+    });
+
+    allTransactionsInMonth.forEach(t => {
+        const customCat = getCustomCategoryForAccount(t.akun);
+        const category = customCat || t.kategori || 'Lain-lain';
+
+        if (t.jenis === 'pemasukan' && category !== 'Transfer Masuk') {
+            totalPemasukanBulanIni += t.nominal;
+        } else if (t.jenis === 'pengeluaran' && category !== 'Transfer Keluar' && category !== 'Biaya Admin') {
+            totalPengeluaranBulanIni += t.nominal;
+        }
+        
+        if (!['Transfer Masuk', 'Transfer Keluar', 'Biaya Admin'].includes(category)) {
+            if (!kategoriSummary[category]) {
+                kategoriSummary[category] = 0;
+            }
+            kategoriSummary[category] += t.nominal; 
+        }
+    });
+
+    rekeningKeys.forEach(({ key, label }) => {
+        let currentMonthNetChange = 0;
+        allTransactionsInMonth.filter(t => t.rekening === label).forEach(t => {
+            currentMonthNetChange += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal);
+        });
+        rekeningSaldoAkhir[label] = rekeningSaldoAwal[label] + currentMonthNetChange;
+    });
+
+    let totalWealthAtEndOfMonth = 0;
+    Object.entries(rekeningSaldoAkhir).forEach(([label, saldo]) => {
+        if (label === 'Ibu') { 
+            totalWealthAtEndOfMonth -= saldo; 
+        } else {
+            totalWealthAtEndOfMonth += saldo; 
+        }
+    });
+
+    const hasTransactions = allTransactionsInMonth.length > 0;
+    const hasNonZeroBalances = Object.values(rekeningSaldoAkhir).some(s => s !== 0);
+
+    if (!hasTransactions && !hasNonZeroBalances) {
+        return showToast(`Tidak ada data transaksi atau saldo yang signifikan untuk membuat laporan bulanan di bulan ${namaBulan} ${tahun}.`, "warning");
+    }
+
+    let yPos = 15;
+    doc.setFontSize(16);
+    doc.text(`Laporan Keuangan Bulanan`, 14, yPos);
+    yPos += 7;
+    doc.setFontSize(12);
+    doc.text(`Periode: ${namaBulan} ${tahun}`, 14, yPos);
+    yPos += 15;
+
+    doc.setFontSize(12);
+    doc.setTextColor(26, 35, 126);
+    doc.text('Ringkasan Keuangan:', 14, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 8;
+
+    const netProfitLoss = totalPemasukanBulanIni - totalPengeluaranBulanIni;
+    const summaryData = [
+      ['Total Pemasukan Bulan Ini', originalFormatRupiah(totalPemasukanBulanIni), 'text-accent-green'],
+      ['Total Pengeluaran Bulan Ini', originalFormatRupiah(totalPengeluaranBulanIni), 'text-accent-red'],
+      ['Net Profit/Loss Bulan Ini', originalFormatRupiah(netProfitLoss), netProfitLoss >= 0 ? 'text-accent-green' : 'text-accent-red'],
+      ['Total Kekayaan Akhir Bulan', originalFormatRupiah(totalWealthAtEndOfMonth), totalWealthAtEndOfMonth >= 0 ? 'text-accent-green' : 'text-accent-red']
+    ];
+
+    doc.autoTable({
+        startY: yPos,
+        head: [['Deskripsi', 'Nominal']],
+        body: summaryData.map(s => [s[0], s[1]]),
+        theme: 'grid',
+        headStyles: { fillColor: [26, 35, 126] },
+        styles: { fontSize: 10, cellPadding: 2 },
+        columnStyles: {
+            1: { halign: 'right' }
+        },
+        didDrawCell: (data) => {
+            if (data.section === 'body' && data.column.index === 1) {
+                const rawData = summaryData[data.row.index];
+                doc.setTextColor(rawData[2] === 'text-accent-green' ? [56, 142, 60] : [211, 47, 47]);
+            } else {
+                doc.setTextColor(0, 0, 0);
+            }
+        }
+    });
+    yPos = doc.autoTable.previous.finalY + 10;
+
+    doc.setFontSize(12);
+    doc.setTextColor(26, 35, 126);
+    doc.text('Ringkasan Total Nominal per Kategori:', 14, yPos); 
+    doc.setTextColor(0, 0, 0);
+    yPos += 8;
+
+    const categoryRows = Object.entries(kategoriSummary).map(([cat, val]) => [
+        cat,
+        originalFormatRupiah(val)
+    ]);
+    categoryRows.sort((a, b) => b[1].localeCompare(a[1]));
+
+    if (categoryRows.length > 0) {
+        doc.autoTable({
+            startY: yPos,
+            head: [['Kategori', 'Total Nominal']], 
+            body: categoryRows,
+            theme: 'grid',
+            headStyles: { fillColor: [26, 35, 126] },
+            styles: { fontSize: 10, cellPadding: 2 },
+            columnStyles: {
+                1: { halign: 'right' }
+            }
+        });
+        yPos = doc.autoTable.previous.finalY + 10;
+    } else {
+        doc.text('Tidak ada ringkasan kategori untuk bulan ini.', 14, yPos);
+        yPos += 10;
+    }
+
+    doc.setFontSize(12);
+    doc.setTextColor(26, 35, 126);
+    doc.text('Saldo Rekening:', 14, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 8;
+
+    const rekeningRows = rekeningKeys.map(({ label }) => {
+        const saldoAkhir = rekeningSaldoAkhir[label] || 0;
+        const saldoAwal = rekeningSaldoAwal[label] || 0;
+        return [
+            label, 
+            originalFormatRupiah(saldoAwal), 
+            originalFormatRupiah(saldoAkhir), 
+            saldoAkhir >= 0 ? 'text-accent-green' : 'text-accent-red'
+        ];
+    });
+
+    if (rekeningRows.length > 0) {
+        doc.autoTable({
+            startY: yPos,
+            head: [['Rekening', 'Saldo Awal Bulan', 'Saldo Akhir Bulan']],
+            body: rekeningRows.map(r => [r[0], r[1], r[2]]),
+            theme: 'grid',
+            headStyles: { fillColor: [26, 35, 126] },
+            styles: { fontSize: 10, cellPadding: 2 },
+            columnStyles: {
+                1: { halign: 'right' },
+                2: { halign: 'right' }
+            },
+            didDrawCell: (data) => {
+                if (data.section === 'body' && data.column.index === 2) {
+                    const rawData = rekeningRows[data.row.index];
+                    doc.setTextColor(rawData[3] === 'text-accent-green' ? [56, 142, 60] : [211, 47, 47]);
+                } else {
+                    doc.setTextColor(0, 0, 0);
+                }
+            }
+        });
+        yPos = doc.autoTable.previous.finalY + 10;
+    } else {
+        doc.text('Tidak ada saldo rekening untuk dilaporkan.', 14, yPos);
+        yPos += 10;
+    }
+
+    const fileName = `Laporan-Keuangan-${namaBulan}-${tahun}.pdf`;
+    doc.save(fileName);
+    showToast("Laporan bulanan berhasil diunduh!", "success");
+  });
+
+
+  document.getElementById('exportBackup').addEventListener('click', function () {
+    const allData = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      allData[k] = localStorage.getItem(k);
+    }
+    allData['customAccountClassifications'] = JSON.stringify(customAccountClassifications);
+    allData['monthlyBudgets'] = JSON.stringify(monthlyBudgets); 
+
+    const blob = new Blob([JSON.stringify(allData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const today = new Date();
+    a.href = url;
+    a.download = `Backup-Keuangan-${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast("Data berhasil diekspor!", "success");
+  });
+
+  document.getElementById("resetData").addEventListener("click", function () {
+    if (confirm("Yakin ingin menghapus seluruh data yang sudah diinput? Tindakan ini tidak bisa dibatalkan. Pastikan sudah backup terlebih dahulu!")) {
+      localStorage.clear();
+      showToast("Data berhasil direset! Halaman akan dimuat ulang.", "warning");
+      setTimeout(() => location.reload(), 1500);
+    }
+  });
+
+  document.getElementById('importBackup').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try {
+        const data = JSON.parse(evt.target.result);
+        Object.entries(data).forEach(([key, value]) => {
+          if (key === 'customAccountClassifications') {
+            customAccountClassifications = JSON.parse(value);
+            localStorage.setItem(key, value);
+          } else if (key === 'monthlyBudgets') { 
+            monthlyBudgets = JSON.parse(value);
+            localStorage.setItem(key, value);
+          } else {
+            localStorage.setItem(key, value);
+          }
+        });
+        showToast("Data berhasil diimpor! Halaman akan dimuat ulang.", "success");
+        setTimeout(() => location.reload(), 1500);
+      } catch {
+        showToast("Gagal import data! Pastikan file JSON valid.", "error");
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  ['jumlahTransaksi', 'bulan', 'tahun', 'filterKategori', 'startDate', 'endDate']
+    .forEach(id => document.getElementById(id).addEventListener('change', renderDashboard));
+  document.getElementById('searchNama').addEventListener('input', renderDashboard);
+
+  function showToast(pesan, type = 'success') {
+    const warna = {
+      success: 'bg-accent-green', error: 'bg-accent-red', warning: 'bg-orange-500', info: 'bg-primary-blue'
+    };
+    const icon = {
+      success: '<i class="fas fa-check-circle"></i>', 
+      error: '<i class="fas fa-times-circle"></i>', 
+      warning: '<i class="fas fa-exclamation-triangle"></i>', 
+      info: '<i class="fas fa-info-circle"></i>'
+    };
+    const div = document.createElement('div');
+    div.className = `${warna[type]} text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-slide-in-fade`;
+    div.innerHTML = `<span>${icon[type]}</span><span class="font-medium">${pesan}</span>`;
+    document.getElementById('toastContainer').appendChild(div);
+    setTimeout(() => {
+      div.classList.add('opacity-0', 'translate-x-full');
+      setTimeout(() => div.remove(), 500);
+    }, 3500);
+  }
+
+  // Menghapus logika chartSizeSelect yang tidak lagi diperlukan
+  const chartSizeSelect = document.getElementById('chartSize');
+  if (chartSizeSelect) {
+    chartSizeSelect.remove();
+    document.getElementById('chartContainer').previousElementSibling.remove();
+  }
+  
+  // Mengubah class container untuk grafik agar fleksibel
+  const chartContainer = document.getElementById('chartContainer');
+  chartContainer.classList.remove('w-full', 'md:w-1/2', 'chart-container-default');
+  chartContainer.classList.add('w-full', 'chart-container');
+  
+  renderDashboard();
+</script>
+</body>
+</html>
