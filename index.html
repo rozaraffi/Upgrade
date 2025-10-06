@@ -64,10 +64,8 @@
       position: relative;
       height: 350px;
       width: 100%;
-      /* Menambahkan padding ke chart container */
-      padding-bottom: 25px; /* Memberi ruang untuk label sumbu X */
+      padding-bottom: 25px;
     }
-    /* Custom class for a softer hover effect on cards */
     .card-hover:hover {
       transform: translateY(-5px);
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
@@ -314,6 +312,11 @@
   </div>
 
 <script>
+  // ===================================================================================
+  // SCRIPT START - KODE INI TELAH DIPERBAIKI
+  // ===================================================================================
+  document.addEventListener('DOMContentLoaded', () => {
+
   const rekeningKeys = [
     { key: 'transaksi_rekening_Cash', label: 'Cash' },
     { key: 'transaksi_rekening_BCA', label: 'BCA' },
@@ -331,15 +334,40 @@
     'Tagihan', 'Gaji', 'Investasi', 'Kesehatan', 'Lain-lain'
   ];
 
-  let customAccountClassifications = JSON.parse(localStorage.getItem('customAccountClassifications')) || [];
-  let monthlyBudgets = JSON.parse(localStorage.getItem('monthlyBudgets')) || {};
-
+  // --- PERBAIKAN UTAMA BAGIAN 2: Definisi elemen DOM di awal ---
+  // Mendefinisikan elemen-elemen penting di sini agar lebih rapi dan terhindar dari bug
   const tahunEl = document.getElementById('tahun');
+  const bulanEl = document.getElementById('bulan');
+
+  let customAccountClassifications = JSON.parse(localStorage.getItem('customAccountClassifications')) || [];
+
+  // --- PERBAIKAN UTAMA BAGIAN 1: Inisialisasi data anggaran yang lebih aman ---
+  // Logika ini mencegah error jika data 'monthlyBudgets' di localStorage rusak atau
+  // dalam format yang salah (misalnya array, bukan objek).
+  let monthlyBudgets = {}; // Default ke objek kosong
+  try {
+    const storedBudgets = localStorage.getItem('monthlyBudgets');
+    if (storedBudgets) { // Hanya proses jika ada data
+      const parsedBudgets = JSON.parse(storedBudgets);
+      // Pemeriksaan penting: pastikan data yang dimuat adalah objek dan bukan array
+      if (typeof parsedBudgets === 'object' && parsedBudgets !== null && !Array.isArray(parsedBudgets)) {
+        monthlyBudgets = parsedBudgets;
+      } else {
+        // Jika format salah, log pesan dan gunakan objek kosong untuk mencegah aplikasi error
+        console.warn('Format `monthlyBudgets` di localStorage tidak valid (bukan objek), data direset.');
+      }
+    }
+  } catch (e) {
+    console.error("Gagal memuat data anggaran dari localStorage. Data direset.", e);
+    // Jika JSON.parse gagal, `monthlyBudgets` akan tetap menjadi objek kosong.
+  }
+  // --- AKHIR PERBAIKAN UTAMA ---
+
   for (let y = new Date().getFullYear(); y <= new Date().getFullYear() + 10; y++) {
     tahunEl.innerHTML += `<option value="${y}">${y}</option>`;
   }
   tahunEl.value = new Date().getFullYear();
-  document.getElementById('bulan').value = String(new Date().getMonth() + 1).padStart(2, '0');
+  bulanEl.value = String(new Date().getMonth() + 1).padStart(2, '0');
 
   const filterKategoriEl = document.getElementById('filterKategori');
   function populateFilterCategories() {
@@ -355,13 +383,10 @@
       filterKategoriEl.innerHTML += `<option value="${category}">${category}</option>`;
     });
   }
-  populateFilterCategories();
-
+  
   const originalFormatRupiah = function(n) {
     const num = Number(n);
-    if (isNaN(num)) {
-      return "Rp 0";
-    }
+    if (isNaN(num)) return "Rp 0";
     const sign = num < 0 ? "-" : "";
     const absoluteNum = Math.abs(num);
     return `${sign}Rp ${absoluteNum.toLocaleString('id-ID')}`;
@@ -370,38 +395,22 @@
   const parseRupiah = function(rupiahString) {
       return parseInt(String(rupiahString).replace(/\D/g, ''), 10) || 0;
   };
-
-  const formatRupiahInput = function(inputElement) {
-    let value = parseRupiah(inputElement.value);
-    if (value) {
-      inputElement.value = originalFormatRupiah(value).replace('Rp ', '');
-    } else {
-      inputElement.value = '';
-    }
-  };
-
+  
   let areNominalsVisible = false;
-  const nominalValueCache = new Map();
-
+  
   let formatRupiahDisplay = function(n) {
-      if (!areNominalsVisible) {
-          return 'Rp ********';
-      }
+      if (!areNominalsVisible) return 'Rp ********';
       return originalFormatRupiah(n);
   };
 
   function getSaldoSebelumBulan(label, year, month) {
     const key = `transaksi_rekening_${label.replace(/\s/g, '_')}`;
     const data = JSON.parse(localStorage.getItem(key)) || [];
-    
     const currentMonthStartDate = new Date(year, parseInt(month) - 1, 1);
     currentMonthStartDate.setHours(0, 0, 0, 0); 
-
     let saldo = 0;
     data.forEach(t => {
         const transactionDate = new Date(t.tgl);
-        transactionDate.setHours(0, 0, 0, 0); 
-
         if (transactionDate < currentMonthStartDate) {
             saldo += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal);
         }
@@ -419,8 +428,8 @@
   }
 
   function renderDashboard() {
-    const bulan = document.getElementById('bulan').value;
-    const tahun = document.getElementById('tahun').value;
+    const bulan = bulanEl.value;
+    const tahun = tahunEl.value;
     const jumlah = +document.getElementById('jumlahTransaksi').value;
     const searchNama = document.getElementById('searchNama').value.toLowerCase();
     const filterKategori = document.getElementById('filterKategori').value;
@@ -438,20 +447,15 @@
 
     rekeningKeys.forEach(({ key, label }) => {
       const data = JSON.parse(localStorage.getItem(key)) || []; 
-      
       let saldoAkhirRekeningIni = getSaldoSebelumBulan(label, tahun, bulan);
-
       const filteredForCurrentMonthTransactions = data.filter(t => t.tgl.startsWith(`${tahun}-${bulan}`));
       
       filteredForCurrentMonthTransactions.forEach(t => {
           saldoAkhirRekeningIni += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal);
       });
 
-      if (label === 'Ibu') {
-          totalSaldoGlobal -= saldoAkhirRekeningIni;
-      } else {
-          totalSaldoGlobal += saldoAkhirRekeningIni;
-      }
+      if (label === 'Ibu') totalSaldoGlobal -= saldoAkhirRekeningIni;
+      else totalSaldoGlobal += saldoAkhirRekeningIni;
 
       allTransaksiForTableDisplay = allTransaksiForTableDisplay.concat(filteredForCurrentMonthTransactions.map(t => {
         const customCat = getCustomCategoryForAccount(t.akun);
@@ -466,60 +470,41 @@
       const el = document.createElement('div');
       el.className = 'bg-card-bg rounded-xl shadow-md p-4 transition-all card-hover cursor-pointer border-l-4 border-primary-blue';
       el.onclick = () => window.location.href = `rekening-${label.toLowerCase().replace(/\s/g, '')}.html`;
-
-      const trueSaldoText = originalFormatRupiah(saldoAkhirRekeningIni);
-      nominalValueCache.set(`rekeningList-${label}`, trueSaldoText);
-
-      el.innerHTML = `<h3 class="font-bold text-dark-gray text-lg mb-1">${label}</h3><p class="text-accent-green font-extrabold text-2xl">${formatRupiahDisplay(saldoAkhirRekeningIni)}</p>`;
+      el.innerHTML = `<h3 class="font-bold text-dark-gray text-lg mb-1">${label}</h3><p class="text-accent-green font-extrabold text-2xl" data-rekening-saldo="${label}">${formatRupiahDisplay(saldoAkhirRekeningIni)}</p>`;
       rekeningList.appendChild(el);
     });
 
-    const trueTotalWealthText = originalFormatRupiah(totalSaldoGlobal);
-    nominalValueCache.set('displayTotalKekayaan', trueTotalWealthText);
     document.getElementById('displayTotalKekayaan').textContent = formatRupiahDisplay(totalSaldoGlobal);
-
     renderCustomCategorySummary(bulan, tahun);
     renderBudgetSummary(bulan, tahun);
-    renderBalanceChart(); // Panggil fungsi grafik
+    renderBalanceChart();
 
     let filteredTransactionsForTable = allTransaksiForTableDisplay.filter(t => {
       const matchNama = t.akun.toLowerCase().includes(searchNama);
-      
-      let matchKategori = true;
-      if (filterKategori !== '') {
-        if (t.kategori && t.kategori.toLowerCase() === filterKategori.toLowerCase()) {
-            matchKategori = true;
-        } else if (t.inferredKategori && t.inferredKategori.toLowerCase() === filterKategori.toLowerCase()) {
-            matchKategori = true;
-        } else {
-            matchKategori = false;
-        }
-      }
-
+      let matchKategori = filterKategori === '' || (t.inferredKategori && t.inferredKategori.toLowerCase() === filterKategori.toLowerCase());
       const tgl = new Date(t.tgl);
-      const from = startDate ? new Date(startDate + 'T00:00:00') : null; 
-      const to = endDate ? new Date(endDate + 'T23:59:59') : null; 
+      const from = startDate ? new Date(startDate) : null; 
+      const to = endDate ? new Date(endDate) : null; 
+      if (from) from.setHours(0, 0, 0, 0);
+      if (to) to.setHours(23, 59, 59, 999);
       const matchTanggal = (!from || tgl >= from) && (!to || tgl <= to);
-      
       return matchNama && matchKategori && matchTanggal;
     });
 
-    filteredTransactionsForTable.sort((a, b) => new Date(b.tgl) - new Date(a.tgl));
+    filteredTransactionsForTable.sort((a, b) => new Date(b.tgl + 'T' + (b.timestamp || '00:00:00')) - new Date(a.tgl + 'T' + (a.timestamp || '00:00:00')));
 
     if (filteredTransactionsForTable.length > 0) {
-      transaksiEl.innerHTML = filteredTransactionsForTable.slice(0, jumlah).map((t, index) => {
-        const transactionId = `${t.tgl}-${t.rekening}-${t.nominal}-${index}`; 
-        const trueNominalText = originalFormatRupiah(t.nominal);
-        nominalValueCache.set(`transaksi-${transactionId}`, trueNominalText);
-
+      transaksiEl.innerHTML = filteredTransactionsForTable.slice(0, jumlah).map(t => {
+        const nominalClass = t.jenis === 'pemasukan' ? 'text-accent-green' : 'text-accent-red';
+        const jenisText = t.jenis.charAt(0).toUpperCase() + t.jenis.slice(1);
         return `
           <tr class="hover:bg-gray-50 transition duration-150 ease-in-out">
             <td class="p-3">${t.tgl}</td>
             <td class="p-3 font-medium">${t.rekening}</td>
             <td class="p-3">${t.akun}</td>
             <td class="p-3">${t.inferredKategori}</td>
-            <td class="p-3 text-right font-semibold ${t.jenis === 'pemasukan' ? 'text-accent-green' : 'text-accent-red'}" data-transaction-id="${transactionId}">${formatRupiahDisplay(t.nominal)}</td>
-            <td class="p-3">${t.jenis === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'}</td>
+            <td class="p-3 text-right font-semibold ${nominalClass}" data-nominal-transaksi>${formatRupiahDisplay(t.nominal)}</td>
+            <td class="p-3">${jenisText}</td>
           </tr>
         `;
       }).join('');
@@ -529,15 +514,13 @@
       noTransactionsMessage.classList.remove('hidden');
     }
 
-    const toggleButton = document.querySelector('.toggle-visibility-btn[data-target="all-nominal"]');
-    if (toggleButton) {
-        toggleButton.innerHTML = areNominalsVisible ? '&#128065;' : '&#128064;';
-    }
+    const toggleButton = document.querySelector('.toggle-visibility-btn');
+    if (toggleButton) toggleButton.innerHTML = areNominalsVisible ? '&#128065;' : '&#128064;';
   }
 
   function toggleAllNominalVisibility() {
       areNominalsVisible = !areNominalsVisible;
-      renderDashboard();
+      renderDashboard(); // Cukup panggil renderDashboard untuk update seluruh UI
   }
 
   document.querySelector('.toggle-visibility-btn[data-target="all-nominal"]').addEventListener('click', toggleAllNominalVisibility);
@@ -546,66 +529,29 @@
   let balanceChartInstance = null;
 
   function renderBalanceChart() {
-    const selectedYear = document.getElementById('tahun').value;
+    const selectedYear = tahunEl.value;
     const monthlyBalances = getMonthlyBalancesForYear(selectedYear);
-
     const labels = Object.keys(monthlyBalances);
     const data = Object.values(monthlyBalances);
-
-    if (balanceChartInstance) {
-      balanceChartInstance.destroy();
-    }
-
+    if (balanceChartInstance) balanceChartInstance.destroy();
     balanceChartInstance = new Chart(balanceChartCanvas, {
       type: 'line',
       data: {
         labels: labels,
         datasets: [{
-          label: `Saldo Akhir ${selectedYear}`,
-          data: data,
-          borderColor: '#1a237e',
-          backgroundColor: 'rgba(26, 35, 126, 0.2)',
-          fill: true,
-          tension: 0.3,
+          label: `Saldo Akhir ${selectedYear}`, data: data, borderColor: '#1a237e',
+          backgroundColor: 'rgba(26, 35, 126, 0.2)', fill: true, tension: 0.3,
         }]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         scales: {
-          x: {
-              grid: {
-                  display: false
-              },
-              ticks: {
-                  display: true,
-                  font: {
-                      size: 10
-                  }
-              }
-          },
-          y: {
-              display: true,
-              beginAtZero: false, 
-              ticks: {
-                  display: true,
-                  callback: function(value) {
-                      return originalFormatRupiah(value).replace('Rp ', '');
-                  }
-              }
-          }
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+          y: { beginAtZero: false, ticks: { callback: value => originalFormatRupiah(value).replace('Rp ', '') } }
         },
         plugins: {
-          legend: {
-            display: false,
-          },
-          tooltip: {
-              callbacks: {
-                  label: function(context) {
-                      return `${context.dataset.label}: ${originalFormatRupiah(context.raw)}`;
-                  }
-              }
-          }
+          legend: { display: false },
+          tooltip: { callbacks: { label: context => `${context.dataset.label}: ${originalFormatRupiah(context.raw)}` } }
         }
       }
     });
@@ -614,49 +560,30 @@
   function getMonthlyBalancesForYear(year) {
       const monthlyBalances = {};
       const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-      
       let totalSaldoAkhirTahunLalu = 0;
       rekeningKeys.forEach(({ key, label }) => {
           const data = JSON.parse(localStorage.getItem(key)) || [];
           const lastYearTransactions = data.filter(t => new Date(t.tgl).getFullYear() < year);
-          
           let saldoTahunLalu = 0;
-          lastYearTransactions.forEach(t => {
-              saldoTahunLalu += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal);
-          });
-
-          if (label === 'Ibu') {
-              totalSaldoAkhirTahunLalu -= saldoTahunLalu;
-          } else {
-              totalSaldoAkhirTahunLalu += saldoTahunLalu;
-          }
+          lastYearTransactions.forEach(t => saldoTahunLalu += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal));
+          if (label === 'Ibu') totalSaldoAkhirTahunLalu -= saldoTahunLalu;
+          else totalSaldoAkhirTahunLalu += saldoTahunLalu;
       });
 
       let runningTotal = totalSaldoAkhirTahunLalu;
-
       for (let i = 0; i < 12; i++) {
           const month = String(i + 1).padStart(2, '0');
-          const monthLabel = months[i];
-          
           let netChangeForThisMonth = 0;
           rekeningKeys.forEach(({ key, label }) => {
               const data = JSON.parse(localStorage.getItem(key)) || [];
               const transactionsForMonth = data.filter(t => t.tgl.startsWith(`${year}-${month}`));
-
               let monthlyChangeForRekening = 0;
-              transactionsForMonth.forEach(t => {
-                  monthlyChangeForRekening += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal);
-              });
-              
-              if (label === 'Ibu') {
-                  netChangeForThisMonth -= monthlyChangeForRekening;
-              } else {
-                  netChangeForThisMonth += monthlyChangeForRekening;
-              }
+              transactionsForMonth.forEach(t => monthlyChangeForRekening += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal));
+              if (label === 'Ibu') netChangeForThisMonth -= monthlyChangeForRekening;
+              else netChangeForThisMonth += monthlyChangeForRekening;
           });
-
           runningTotal += netChangeForThisMonth;
-          monthlyBalances[monthLabel] = runningTotal;
+          monthlyBalances[months[i]] = runningTotal;
       }
       return monthlyBalances;
   }
@@ -672,7 +599,7 @@
 
   aturKategoriBtn.addEventListener('click', () => {
     renderKategoriInputs();
-    modalAturKategori.classList.remove('hidden');
+    modalAturKategori.classList.remove('hidden', 'opacity-0', 'scale-95');
     setTimeout(() => modalAturKategori.classList.add('opacity-100', 'scale-100'), 10);
   });
 
@@ -702,7 +629,6 @@
       addKategoriInput(); 
       return;
     }
-
     customAccountClassifications.forEach((classification, index) => {
       addKategoriInput(classification.categoryName, classification.accounts.join(', '), index);
     });
@@ -711,11 +637,11 @@
   function addKategoriInput(categoryName = '', accounts = '', index = null) {
     const div = document.createElement('div');
     div.className = 'border border-gray-200 p-4 rounded-lg mb-4 bg-gray-50';
-    const uniqueId = index !== null ? index : Date.now();
+    const uniqueId = index !== null ? `existing-${index}` : `new-${Date.now()}`;
     div.innerHTML = `
       <div class="flex justify-between items-center mb-3">
         <label for="categoryName-${uniqueId}" class="font-medium text-dark-gray">Nama Kategori:</label>
-        ${index !== null ? `<button type="button" data-index="${uniqueId}" class="hapus-kategori-btn text-accent-red hover:text-red-700 font-bold text-lg leading-none focus:outline-none focus:ring-2 focus:ring-red-300 rounded-full px-2 py-1">-</button>` : ''}
+        <button type="button" class="hapus-kategori-btn text-accent-red hover:text-red-700 font-bold text-lg leading-none focus:outline-none">&times;</button>
       </div>
       <input type="text" id="categoryName-${uniqueId}" placeholder="Nama Kategori (misal: Pendapatan)" value="${categoryName}"
              class="w-full border border-gray-300 px-3 py-2 rounded-md shadow-sm mb-3 focus:ring-primary-blue focus:border-primary-blue category-name-input">
@@ -724,92 +650,45 @@
              class="w-full border border-gray-300 px-3 py-2 rounded-md shadow-sm focus:ring-primary-blue focus:border-primary-blue accounts-input">
     `;
     kategoriInputContainer.appendChild(div);
-
-    if (index !== null) {
-      const deleteButton = div.querySelector(`.hapus-kategori-btn[data-index="${uniqueId}"]`);
-      if (deleteButton) {
-        deleteButton.addEventListener('click', (e) => {
-          const idxToRemove = customAccountClassifications.findIndex(c => 
-            c.categoryName === categoryName && c.accounts.join(', ') === accounts
-          );
-          if (idxToRemove > -1) {
-            customAccountClassifications.splice(idxToRemove, 1); 
-            renderKategoriInputs(); 
-          }
-        });
-      }
-    }
+    div.querySelector('.hapus-kategori-btn').addEventListener('click', () => div.remove());
   }
 
   function saveKategoriSettings() {
     const newClassifications = [];
-    const categoryNameInputs = document.querySelectorAll('.category-name-input');
-    const accountsInputs = document.querySelectorAll('.accounts-input');
-
-    categoryNameInputs.forEach((nameInput, index) => {
-      const categoryName = nameInput.value.trim();
-      const accounts = accountsInputs[index].value.split(',').map(acc => acc.trim()).filter(acc => acc !== '');
-
+    kategoriInputContainer.querySelectorAll('.border').forEach(div => {
+      const categoryName = div.querySelector('.category-name-input').value.trim();
+      const accounts = div.querySelector('.accounts-input').value.split(',').map(acc => acc.trim()).filter(acc => acc);
       if (categoryName && accounts.length > 0) {
         newClassifications.push({ categoryName, accounts });
       }
     });
-
     customAccountClassifications = newClassifications;
     localStorage.setItem('customAccountClassifications', JSON.stringify(customAccountClassifications));
   }
 
   function renderCustomCategorySummary(currentMonth, currentYear) {
     ringkasanKategoriKustomEl.innerHTML = '';
-
     if (customAccountClassifications.length === 0) {
-      ringkasanKategoriKustomEl.innerHTML = '<p class="text-gray-500 text-center col-span-full">Belum ada kategori kustom yang diatur.</p>';
+      ringkasanKategoriKustomEl.innerHTML = '<p class="text-gray-500 text-center col-span-full">Belum ada kategori kustom.</p>';
       return;
     }
-
     customAccountClassifications.forEach(classification => {
       let totalNominalForCategory = 0;
-      
-      rekeningKeys.forEach(({ key, label }) => {
+      rekeningKeys.forEach(({ key }) => {
         const data = JSON.parse(localStorage.getItem(key)) || [];
-        const filteredTransactionsForRekening = data.filter(t => {
-          const transactionMonthYear = t.tgl.substring(0, 7); 
-          const currentMonthYear = `${currentYear}-${currentMonth}`;
-          
-          if (transactionMonthYear !== currentMonthYear) {
-            return false;
-          }
-          return classification.accounts.some(accountKeyword => 
-            t.akun.toLowerCase().includes(accountKeyword.toLowerCase())
-          );
-        });
-
-        filteredTransactionsForRekening.forEach(t => {
-          if (t.jenis === 'pemasukan') {
-            totalNominalForCategory += t.nominal;
-          } else if (t.jenis === 'pengeluaran') {
-            totalNominalForCategory += t.nominal;
-          }
-        });
+        const transactions = data.filter(t => t.tgl.startsWith(`${currentYear}-${currentMonth}`) && classification.accounts.some(keyword => t.akun.toLowerCase().includes(keyword.toLowerCase())));
+        transactions.forEach(t => totalNominalForCategory += t.nominal);
       });
-
       const div = document.createElement('div');
-      div.className = 'bg-primary-blue-50 p-4 rounded-lg shadow-sm border border-primary-blue-100';
-      
-      const trueTotalNominalText = originalFormatRupiah(totalNominalForCategory);
-      nominalValueCache.set(`custom-${classification.categoryName}`, trueTotalNominalText);
-
+      div.className = 'bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200';
       div.innerHTML = `
         <h4 class="font-semibold text-primary-blue text-lg mb-1">${classification.categoryName}</h4>
-        <p class="text-2xl font-bold ${totalNominalForCategory >= 0 ? 'text-accent-green' : 'text-accent-red'}">
-          ${formatRupiahDisplay(totalNominalForCategory)}
-        </p>
-      `;
+        <p class="text-2xl font-bold text-dark-gray">${formatRupiahDisplay(totalNominalForCategory)}</p>`;
       ringkasanKategoriKustomEl.appendChild(div);
     });
   }
 
-  // --- NEW: Budgeting Logic ---
+  // --- Budgeting Logic ---
   const modalAturAnggaran = document.getElementById('modalAturAnggaran');
   const aturAnggaranBtn = document.getElementById('aturAnggaranBtn');
   const tutupModalAnggaranBtn = document.getElementById('tutupModalAnggaranBtn');
@@ -819,9 +698,9 @@
   const anggaranSummaryEl = document.getElementById('anggaranSummary');
 
   aturAnggaranBtn.addEventListener('click', () => {
-    const currentMonthYear = `${tahunEl.value}-${bulan.value}`;
+    const currentMonthYear = `${tahunEl.value}-${bulanEl.value}`;
     renderAnggaranInputs(currentMonthYear);
-    modalAturAnggaran.classList.remove('hidden');
+    modalAturAnggaran.classList.remove('hidden', 'opacity-0');
     setTimeout(() => modalAturAnggaran.classList.add('opacity-100', 'scale-100'), 10);
   });
 
@@ -846,91 +725,52 @@
   function renderAnggaranInputs(currentMonthYear) {
     anggaranInputContainer.innerHTML = '';
     const currentMonthBudget = monthlyBudgets[currentMonthYear] || [];
-
     if (currentMonthBudget.length === 0) {
       addAnggaranInput(); 
       return;
     }
-
-    currentMonthBudget.forEach((budget, index) => {
-      addAnggaranInput(budget.category, budget.amount, index);
-    });
+    currentMonthBudget.forEach(budget => addAnggaranInput(budget.category, budget.amount));
   }
 
-  function addAnggaranInput(category = '', amount = '', index = null) {
+  function addAnggaranInput(category = '', amount = '') {
     const div = document.createElement('div');
     div.className = 'border border-gray-200 p-4 rounded-lg mb-4 bg-gray-50 anggaran-item';
-    const uniqueId = index !== null ? index : Date.now();
-
-    const allCategoriesSet = new Set(defaultAccountCategories);
-    customAccountClassifications.forEach(classification => allCategoriesSet.add(classification.categoryName));
-    
-    const categoriesForBudgeting = Array.from(allCategoriesSet).filter(cat => 
-        !['Transfer Keluar', 'Transfer Masuk', 'Biaya Admin'].includes(cat)
-    );
-
-    const categoryOptions = categoriesForBudgeting
-        .sort()
-        .map(cat => `<option value="${cat}" ${cat === category ? 'selected' : ''}>${cat}</option>`)
-        .join('');
+    const uniqueId = Date.now();
+    const allCategoriesSet = new Set([...defaultAccountCategories, ...customAccountClassifications.map(c => c.categoryName)]);
+    const categoriesForBudgeting = Array.from(allCategoriesSet).filter(cat => !['Transfer Keluar', 'Transfer Masuk', 'Biaya Admin', 'Gaji'].includes(cat));
+    const categoryOptions = categoriesForBudgeting.sort().map(cat => `<option value="${cat}" ${cat === category ? 'selected' : ''}>${cat}</option>`).join('');
 
     div.innerHTML = `
       <div class="flex justify-between items-center mb-3">
         <label for="budgetCategory-${uniqueId}" class="font-medium text-dark-gray">Kategori:</label>
-        ${index !== null ? `<button type="button" data-index="${uniqueId}" class="hapus-anggaran-btn text-accent-red hover:text-red-700 font-bold text-lg leading-none focus:outline-none focus:ring-2 focus:ring-red-300 rounded-full px-2 py-1">-</button>` : ''}
+        <button type="button" class="hapus-anggaran-btn text-accent-red hover:text-red-700 font-bold text-lg leading-none focus:outline-none">&times;</button>
       </div>
       <select id="budgetCategory-${uniqueId}" class="w-full border border-gray-300 px-3 py-2 rounded-md shadow-sm mb-3 focus:ring-primary-blue focus:border-primary-blue budget-category-select">
-        <option value="">Pilih Kategori</option>
-        ${categoryOptions}
+        <option value="">Pilih Kategori</option>${categoryOptions}
       </select>
       <label for="budgetAmount-${uniqueId}" class="font-medium text-dark-gray">Nominal Anggaran:</label>
       <input type="text" id="budgetAmount-${uniqueId}" placeholder="Contoh: 1.000.000" value="${amount ? originalFormatRupiah(amount).replace('Rp ', '') : ''}"
-             class="w-full border border-gray-300 px-3 py-2 rounded-md shadow-sm focus:ring-primary-blue focus:border-primary-blue budget-amount-input" min="0">
-    `;
+             class="w-full border border-gray-300 px-3 py-2 rounded-md shadow-sm focus:ring-primary-blue focus:border-primary-blue budget-amount-input">`;
     anggaranInputContainer.appendChild(div);
 
-    const budgetAmountInput = div.querySelector(`#budgetAmount-${uniqueId}`);
+    const budgetAmountInput = div.querySelector('.budget-amount-input');
     budgetAmountInput.addEventListener('input', () => {
         let value = budgetAmountInput.value.replace(/\D/g, '');
-        if (value) {
-            budgetAmountInput.value = parseInt(value, 10).toLocaleString('id-ID');
-        } else {
-            budgetAmountInput.value = '';
-        }
+        budgetAmountInput.value = value ? parseInt(value, 10).toLocaleString('id-ID') : '';
     });
-
-    const deleteButton = div.querySelector(`.hapus-anggaran-btn[data-index="${uniqueId}"]`);
-    if (deleteButton) {
-        deleteButton.addEventListener('click', () => {
-            const currentMonthYear = `${tahunEl.value}-${bulan.value}`;
-            let currentMonthBudget = monthlyBudgets[currentMonthYear] || [];
-            
-            currentMonthBudget = currentMonthBudget.filter(b => !(b.category === category && b.amount === amount));
-            monthlyBudgets[currentMonthYear] = currentMonthBudget;
-            localStorage.setItem('monthlyBudgets', JSON.stringify(monthlyBudgets));
-            div.remove();
-            showToast("Anggaran kategori berhasil dihapus!", "info");
-        });
-    }
+    div.querySelector('.hapus-anggaran-btn').addEventListener('click', () => div.remove());
   }
 
   function saveAnggaranSettings() {
-    const currentMonthYear = `${tahunEl.value}-${bulan.value}`;
+    const currentMonthYear = `${tahunEl.value}-${bulanEl.value}`;
     const newMonthBudgets = [];
-    const budgetCategorySelects = document.querySelectorAll('.budget-category-select');
-    const budgetAmountInputs = document.querySelectorAll('.budget-amount-input');
-
-    budgetCategorySelects.forEach((catSelect, index) => {
-      const category = catSelect.value.trim();
-      const amount = parseRupiah(budgetAmountInputs[index].value);
-
-      if (category && category !== "" && !isNaN(amount) && amount >= 0) {
-        newMonthBudgets.push({ category, amount });
-      }
+    document.querySelectorAll('.anggaran-item').forEach(item => {
+      const category = item.querySelector('.budget-category-select').value;
+      const amount = parseRupiah(item.querySelector('.budget-amount-input').value);
+      if (category && amount > 0) newMonthBudgets.push({ category, amount });
     });
-
     monthlyBudgets[currentMonthYear] = newMonthBudgets;
-    localStorage.setItem('monthlyBudgets', JSON.stringify(newMonthBudgets));
+    localStorage.setItem('monthlyBudgets', JSON.stringify(monthlyBudgets));
   }
 
   function renderBudgetSummary(currentMonth, currentYear) {
@@ -939,52 +779,30 @@
     const budgetsForThisMonth = monthlyBudgets[currentMonthYear] || [];
 
     if (budgetsForThisMonth.length === 0) {
-      anggaranSummaryEl.innerHTML = '<p class="text-gray-500 text-center col-span-full">Belum ada anggaran yang diatur untuk bulan ini.</p>';
+      anggaranSummaryEl.innerHTML = '<p class="text-gray-500 text-center col-span-full">Belum ada anggaran untuk bulan ini.</p>';
       return;
     }
 
     const categoryActualSpending = {};
-
-    rekeningKeys.forEach(({ key, label }) => {
+    rekeningKeys.forEach(({ key }) => {
       const data = JSON.parse(localStorage.getItem(key)) || [];
-      const filteredTransactionsForRekening = data.filter(t => {
-        const transactionMonthYear = t.tgl.substring(0, 7); 
-        return transactionMonthYear === currentMonthYear && t.jenis === 'pengeluaran'; 
-      });
-
-      filteredTransactionsForRekening.forEach(t => {
+      const transactions = data.filter(t => t.tgl.startsWith(currentMonthYear) && t.jenis === 'pengeluaran');
+      transactions.forEach(t => {
         const inferredCat = getCustomCategoryForAccount(t.akun) || t.kategori || 'Lain-lain';
-        if (inferredCat !== 'Transfer Keluar' && inferredCat !== 'Transfer Masuk' && inferredCat !== 'Biaya Admin') {
-            if (!categoryActualSpending[inferredCat]) {
-                categoryActualSpending[inferredCat] = 0;
-            }
-            categoryActualSpending[inferredCat] += t.nominal;
+        if (inferredCat !== 'Transfer Keluar' && inferredCat !== 'Biaya Admin') {
+            categoryActualSpending[inferredCat] = (categoryActualSpending[inferredCat] || 0) + t.nominal;
         }
       });
     });
 
     budgetsForThisMonth.forEach(budget => {
-      const category = budget.category;
-      const budgetedAmount = budget.amount;
+      const { category, amount: budgetedAmount } = budget;
       const actualSpending = categoryActualSpending[category] || 0;
       const remaining = budgetedAmount - actualSpending;
       const percentageUsed = budgetedAmount > 0 ? (actualSpending / budgetedAmount) * 100 : 0;
-
-      let progressBarColor = 'bg-accent-green';
-      if (percentageUsed >= 90) {
-        progressBarColor = 'bg-accent-red';
-      } else if (percentageUsed >= 70) {
-        progressBarColor = 'bg-yellow-500';
-      }
-
+      const progressBarColor = percentageUsed >= 90 ? 'bg-accent-red' : percentageUsed >= 70 ? 'bg-yellow-500' : 'bg-accent-green';
       const div = document.createElement('div');
       div.className = 'bg-white p-4 rounded-lg shadow-sm border-l-4 border-gray-200';
-      
-      const trueActualSpendingText = originalFormatRupiah(actualSpending);
-      const trueRemainingText = originalFormatRupiah(remaining);
-      nominalValueCache.set(`budget-used-${category}`, trueActualSpendingText);
-      nominalValueCache.set(`budget-remaining-${category}`, trueRemainingText);
-
       div.innerHTML = `
         <h4 class="font-semibold text-dark-gray text-lg mb-1">${category}</h4>
         <p class="text-sm text-gray-600 mb-2">Anggaran: ${originalFormatRupiah(budgetedAmount)}</p>
@@ -992,13 +810,12 @@
           <div class="${progressBarColor} h-2.5 rounded-full" style="width: ${Math.min(100, percentageUsed)}%"></div>
         </div>
         <p class="text-sm text-gray-600 mb-1">Terpakai: <span class="font-bold text-xl">${formatRupiahDisplay(actualSpending)}</span></p>
-        <p class="text-sm text-gray-600">Sisa: <span class="font-bold text-xl ${remaining >= 0 ? 'text-accent-green' : 'text-accent-red'}">${formatRupiahDisplay(remaining)}</span></p>
-      `;
+        <p class="text-sm text-gray-600">Sisa: <span class="font-bold text-xl ${remaining >= 0 ? 'text-accent-green' : 'text-accent-red'}">${formatRupiahDisplay(remaining)}</span></p>`;
       anggaranSummaryEl.appendChild(div);
     });
   }
 
-  // --- NEW: Add Transaction / Transfer Modal Logic ---
+  // --- Add Transaction / Transfer Modal Logic ---
   const addTransactionBtn = document.getElementById('addTransactionBtn');
   const modalAddTransaction = document.getElementById('modalAddTransaction');
   const cancelTransactionBtn = document.getElementById('cancelTransactionBtn');
@@ -1020,69 +837,35 @@
     rekeningFromSelect.innerHTML = '';
     rekeningToSelect.innerHTML = ''; 
     rekeningKeys.forEach(({ label }) => {
-      const optionFrom = document.createElement('option');
-      optionFrom.value = label;
-      optionFrom.textContent = label;
-      rekeningFromSelect.appendChild(optionFrom);
-
-      const optionTo = document.createElement('option');
-      optionTo.value = label;
-      optionTo.textContent = label;
-      rekeningToSelect.appendChild(optionTo);
+      rekeningFromSelect.innerHTML += `<option value="${label}">${label}</option>`;
+      rekeningToSelect.innerHTML += `<option value="${label}">${label}</option>`;
     });
   }
 
   function populateTransactionCategories() {
       transactionCategorySelect.innerHTML = '';
-      const allCategories = new Set([...defaultAccountCategories]);
-      customAccountClassifications.forEach(classification => allCategories.add(classification.categoryName));
-      
+      const allCategories = new Set([...defaultAccountCategories, ...customAccountClassifications.map(c => c.categoryName)]);
       const regularCategories = Array.from(allCategories).filter(cat => !['Transfer Keluar', 'Transfer Masuk', 'Biaya Admin'].includes(cat));
-
-      regularCategories.sort().forEach(category => {
-          const option = document.createElement('option');
-          option.value = category;
-          option.textContent = category;
-          transactionCategorySelect.appendChild(option);
-      });
+      regularCategories.sort().forEach(category => transactionCategorySelect.innerHTML += `<option value="${category}">${category}</option>`);
   }
-
-  transactionNominalInput.addEventListener('input', () => {
-    let value = transactionNominalInput.value.replace(/\D/g, ''); 
-    if (value) {
-      transactionNominalInput.value = parseInt(value, 10).toLocaleString('id-ID');
-    } else {
-      transactionNominalInput.value = '';
-    }
-  });
-
-  transferFeeInput.addEventListener('input', () => {
-    let value = transferFeeInput.value.replace(/\D/g, ''); 
-    if (value) {
-      transferFeeInput.value = parseInt(value, 10).toLocaleString('id-ID');
-    } else {
-      transferFeeInput.value = '';
-    }
-  });
-
+  
+  const formatInputAsRupiah = (inputEl) => {
+    let value = inputEl.value.replace(/\D/g, ''); 
+    inputEl.value = value ? parseInt(value, 10).toLocaleString('id-ID') : '';
+  };
+  transactionNominalInput.addEventListener('input', () => formatInputAsRupiah(transactionNominalInput));
+  transferFeeInput.addEventListener('input', () => formatInputAsRupiah(transferFeeInput));
 
   addTransactionBtn.addEventListener('click', () => {
     populateRekeningSelects();
     populateTransactionCategories(); 
-    
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    document.getElementById('transactionDate').value = `${yyyy}-${mm}-${dd}`;
-
+    document.getElementById('transactionDate').valueAsDate = new Date();
     transactionForm.reset();
     transactionTypeSelect.value = 'pengeluaran'; 
     transferFeeInput.value = '0';
     document.querySelector('input[name="feePayer"][value="sender"]').checked = true;
     updateTransactionFormVisibility(); 
-
-    modalAddTransaction.classList.remove('hidden');
+    modalAddTransaction.classList.remove('hidden', 'opacity-0');
     setTimeout(() => modalAddTransaction.classList.add('opacity-100', 'scale-100'), 10);
   });
 
@@ -1095,30 +878,19 @@
 
   function updateTransactionFormVisibility() {
     const type = transactionTypeSelect.value;
-
-    if (type === 'transfer') {
-      rekeningFromGroup.querySelector('label').textContent = 'Rekening Asal:';
-      rekeningToGroup.classList.remove('hidden');
-      transferFeeGroup.classList.remove('hidden'); 
-      categoryGroup.classList.add('hidden'); 
-      transactionCategorySelect.removeAttribute('required');
-      transactionAccountInput.setAttribute('placeholder', 'Deskripsi Transfer (Opsional)'); 
-      transactionAccountInput.value = ''; 
-      transactionAccountInput.removeAttribute('required'); 
-    } else {
-      rekeningFromGroup.querySelector('label').textContent = 'Rekening:';
-      rekeningToGroup.classList.add('hidden');
-      transferFeeGroup.classList.add('hidden'); 
-      categoryGroup.classList.remove('hidden'); 
-      transactionCategorySelect.setAttribute('required', 'required');
-      transactionAccountInput.setAttribute('placeholder', 'Misal: Gaji, Kopi, Belanja');
-      transactionAccountInput.setAttribute('required', 'required'); 
-    }
+    const isTransfer = type === 'transfer';
+    rekeningFromGroup.querySelector('label').textContent = isTransfer ? 'Rekening Asal:' : 'Rekening:';
+    rekeningToGroup.classList.toggle('hidden', !isTransfer);
+    transferFeeGroup.classList.toggle('hidden', !isTransfer);
+    categoryGroup.classList.toggle('hidden', isTransfer);
+    transactionCategorySelect.required = !isTransfer;
+    transactionAccountInput.placeholder = isTransfer ? 'Deskripsi Transfer (Opsional)' : 'Misal: Gaji, Kopi, Belanja';
+    transactionAccountInput.required = !isTransfer;
+    if (isTransfer) transactionAccountInput.value = '';
   }
 
   transactionForm.addEventListener('submit', function(e) {
     e.preventDefault();
-
     const date = document.getElementById('transactionDate').value;
     const type = transactionTypeSelect.value;
     const nominal = parseRupiah(transactionNominalInput.value); 
@@ -1126,423 +898,156 @@
     const transferFee = parseRupiah(transferFeeInput.value); 
     const feePayer = document.querySelector('input[name="feePayer"]:checked')?.value; 
 
-    if (isNaN(nominal) || nominal <= 0) {
-      showToast("Nominal harus angka positif.", "error");
-      return;
-    }
-    if (isNaN(transferFee) || transferFee < 0) {
-        showToast("Biaya admin tidak valid.", "error");
-        return;
-    }
+    if (isNaN(nominal) || nominal <= 0) return showToast("Nominal harus angka positif.", "error");
+    if (isNaN(transferFee) || transferFee < 0) return showToast("Biaya admin tidak valid.", "error");
+
+    const newTransaction = {
+      tgl: date,
+      deskripsi: description,
+      timestamp: new Date().toLocaleTimeString('id-ID', { hour12: false })
+    };
 
     if (type === 'transfer') {
       const rekeningFromLabel = rekeningFromSelect.value;
       const rekeningToLabel = rekeningToSelect.value;
-
+      if (rekeningFromLabel === rekeningToLabel) return showToast("Rekening asal dan tujuan tidak boleh sama.", "error");
+      
       const rekeningFromKey = `transaksi_rekening_${rekeningFromLabel.replace(/\s/g, '_')}`;
       const rekeningToKey = `transaksi_rekening_${rekeningToLabel.replace(/\s/g, '_')}`;
-
-      if (rekeningFromLabel === rekeningToLabel) {
-        showToast("Rekening asal dan tujuan tidak boleh sama.", "error");
-        return;
-      }
-
       let dataFrom = JSON.parse(localStorage.getItem(rekeningFromKey)) || [];
       let dataTo = JSON.parse(localStorage.getItem(rekeningToKey)) || [];
 
-      dataFrom.push({
-        tgl: date,
-        akun: `Transfer ke ${rekeningToLabel}` + (description ? ` - ${description}` : ''),
-        kategori: 'Transfer Keluar',
-        nominal: nominal,
-        jenis: 'pengeluaran',
-        deskripsi: description
-      });
+      dataFrom.push({ ...newTransaction, akun: `Transfer ke ${rekeningToLabel}`, kategori: 'Transfer Keluar', nominal: nominal, jenis: 'pengeluaran' });
+      
+      let actualNominalReceived = nominal - (transferFee > 0 && feePayer === 'receiver' ? transferFee : 0);
+      if(actualNominalReceived < 0) return showToast("Nominal transfer kurang dari biaya admin.", "error");
 
-      let actualNominalReceived = nominal;
-      if (transferFee > 0 && feePayer === 'receiver') {
-          actualNominalReceived = nominal - transferFee;
-          if (actualNominalReceived < 0) { 
-              showToast("Nominal transfer kurang dari biaya admin saat ditanggung penerima. Transaksi dibatalkan.", "error");
-              return;
-          }
-      }
-
-      dataTo.push({
-        tgl: date,
-        akun: `Transfer dari ${rekeningFromLabel}` + (description ? ` - ${description}` : ''),
-        kategori: 'Transfer Masuk',
-        nominal: actualNominalReceived,
-        jenis: 'pemasukan',
-        deskripsi: description
-      });
+      dataTo.push({ ...newTransaction, akun: `Transfer dari ${rekeningFromLabel}`, kategori: 'Transfer Masuk', nominal: actualNominalReceived, jenis: 'pemasukan' });
 
       if (transferFee > 0) {
         if (feePayer === 'sender') {
-          dataFrom.push({
-            tgl: date,
-            akun: `Biaya Admin Transfer ke ${rekeningToLabel}`,
-            kategori: 'Biaya Admin',
-            nominal: transferFee,
-            jenis: 'pengeluaran',
-            deskripsi: `Biaya admin transfer ditanggung pengirim untuk ${description}`
-          });
-          showToast(`Transfer sebesar ${originalFormatRupiah(nominal)} dengan biaya admin ${originalFormatRupiah(transferFee)} ditanggung pengirim berhasil!`, "success");
-        } else if (feePayer === 'receiver') {
-          dataTo.push({
-            tgl: date,
-            akun: `Biaya Admin Transfer dari ${rekeningFromLabel}`,
-            kategori: 'Biaya Admin',
-            nominal: transferFee,
-            jenis: 'pengeluaran',
-            deskripsi: `Biaya admin transfer ditanggung penerima untuk ${description}`
-          });
-          showToast(`Transfer sebesar ${originalFormatRupiah(nominal)} dengan biaya admin ${originalFormatRupiah(transferFee)} ditanggung penerima berhasil!`, "success");
+          dataFrom.push({ ...newTransaction, akun: `Biaya Admin Transfer`, kategori: 'Biaya Admin', nominal: transferFee, jenis: 'pengeluaran' });
+        } else { // receiver
+          dataTo.push({ ...newTransaction, akun: `Biaya Admin Transfer`, kategori: 'Biaya Admin', nominal: transferFee, jenis: 'pengeluaran' });
         }
-      } else {
-        showToast(`Transfer sebesar ${originalFormatRupiah(nominal)} berhasil!`, "success");
       }
-      
       localStorage.setItem(rekeningFromKey, JSON.stringify(dataFrom));
       localStorage.setItem(rekeningToKey, JSON.stringify(dataTo));
-
+      showToast(`Transfer sebesar ${originalFormatRupiah(nominal)} berhasil!`, "success");
     } else {
-      const rekeningLabel = rekeningFromSelect.value; 
-      const rekeningKey = `transaksi_rekening_${rekeningLabel.replace(/\s/g, '_')}`;
+      const rekeningKey = `transaksi_rekening_${rekeningFromSelect.value.replace(/\s/g, '_')}`;
       const accountName = transactionAccountInput.value.trim();
       const category = transactionCategorySelect.value;
-
-      if (!accountName || !category) {
-          showToast("Nama akun dan kategori harus diisi.", "error");
-          return;
-      }
-
+      if (!accountName || !category) return showToast("Nama akun dan kategori harus diisi.", "error");
       let data = JSON.parse(localStorage.getItem(rekeningKey)) || [];
-      data.push({
-        tgl: date,
-        akun: accountName,
-        kategori: category,
-        nominal: nominal,
-        jenis: type,
-        deskripsi: description
-      });
+      data.push({ ...newTransaction, akun: accountName, kategori: category, nominal: nominal, jenis: type });
       localStorage.setItem(rekeningKey, JSON.stringify(data));
       showToast("Transaksi berhasil ditambahkan!", "success");
     }
-
-    modalAddTransaction.classList.remove('opacity-0', 'scale-95');
-    setTimeout(() => {
-        modalAddTransaction.classList.add('hidden');
-        modalAddTransaction.classList.remove('scale-100', 'opacity-100');
-    }, 300);
+    cancelTransactionBtn.click();
     renderDashboard();
   });
 
   // --- Export/Import & Reset Functions ---
-  document.getElementById('downloadExcel').addEventListener('click', function () {
-    const wb = XLSX.utils.book_new();
-    const bulan = document.getElementById('bulan').value;
-    const tahun = document.getElementById('tahun').value;
-    let allData = [];
-
-    rekeningKeys.forEach(({ key, label }) => {
-      const data = JSON.parse(localStorage.getItem(key)) || [];
-      const filtered = data.filter(t => t.tgl.startsWith(`${tahun}-${bulan}`));
-      filtered.forEach(d => {
-        const customCat = getCustomCategoryForAccount(d.akun);
-        allData.push({ 
-            Tanggal: d.tgl, 
-            Rekening: label, 
-            Akun: d.akun, 
-            Kategori: customCat || d.kategori || '-', 
-            Keterangan: String(d.deskripsi || '').trim(), 
-            Nominal: d.nominal, 
-            Jenis: d.jenis 
-        });
-      });
-    });
-
-    if (allData.length === 0) return showToast("Tidak ada data untuk diekspor!", "warning");
-
-    const ws = XLSX.utils.json_to_sheet(allData);
-    XLSX.utils.book_append_sheet(wb, ws, "Transaksi");
-    const fileName = `Transaksi-${tahun}-${bulan}-${new Date().getDate()}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-    showToast("Data berhasil diekspor ke Excel!", "success");
-  });
-
-  document.getElementById('downloadPDF').addEventListener('click', function () {
+  const downloadData = (format) => {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const bulan = document.getElementById('bulan').value;
-    const namaBulan = new Date(2000, parseInt(bulan) - 1, 1).toLocaleString('id-ID', { month: 'long' });
-    const tahun = document.getElementById('tahun').value;
-
+    const bulan = bulanEl.value;
+    const tahun = tahunEl.value;
     let allData = [];
-
     rekeningKeys.forEach(({ key, label }) => {
       const data = JSON.parse(localStorage.getItem(key)) || [];
       const filtered = data.filter(t => t.tgl.startsWith(`${tahun}-${bulan}`));
       filtered.forEach(d => {
         const customCat = getCustomCategoryForAccount(d.akun);
-        allData.push({ 
-            tgl: d.tgl, 
-            rekening: label, 
-            akun: d.akun, 
-            kategori: customCat || d.kategori || '-', 
-            deskripsi: String(d.deskripsi || '').trim(), 
-            nominal: d.nominal, 
-            jenis: d.jenis 
-        });
+        allData.push({ Tanggal: d.tgl, Rekening: label, Akun: d.akun, Kategori: customCat || d.kategori || '-', Keterangan: d.deskripsi || '', Nominal: d.nominal, Jenis: d.jenis });
       });
     });
 
     if (allData.length === 0) return showToast("Tidak ada data untuk diekspor!", "warning");
 
-    allData.sort((a, b) => new Date(b.tgl) - new Date(a.tgl));
-
-    const rows = allData.map(d => [
-      d.tgl,
-      d.rekening,
-      d.akun,
-      d.kategori,
-      d.deskripsi, 
-      originalFormatRupiah(d.nominal),
-      d.jenis === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'
-    ]);
-
-    doc.text(`Laporan Transaksi Keuangan Bulan ${namaBulan} Tahun ${tahun}`, 14, 15);
-    doc.autoTable({
-      startY: 25,
-      head: [['Tanggal', 'Rekening', 'Akun', 'Kategori', 'Keterangan', 'Nominal', 'Jenis']],
-      body: rows,
-      theme: 'grid', 
-      headStyles: { fillColor: [26, 35, 126] }, 
-      styles: { fontSize: 8, cellPadding: 2 },
-      columnStyles: {
-        5: { halign: 'right' } 
-      }
-    });
-
-    const fileName = `Transaksi-${tahun}-${bulan}-${new Date().getDate()}.pdf`;
-    doc.save(fileName);
-    showToast("Data transaksi berhasil diekspor ke PDF!", "success");
-  });
-
+    const fileName = `Transaksi-${tahun}-${bulan}-${new Date().getDate()}`;
+    if (format === 'excel') {
+      const ws = XLSX.utils.json_to_sheet(allData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Transaksi");
+      XLSX.writeFile(wb, `${fileName}.xlsx`);
+      showToast("Ekspor ke Excel berhasil!", "success");
+    } else { // pdf
+      const doc = new jsPDF();
+      const rows = allData.map(d => [d.Tanggal, d.Rekening, d.Akun, d.Kategori, d.Keterangan, originalFormatRupiah(d.Nominal), d.Jenis]);
+      doc.text(`Laporan Transaksi Keuangan - ${bulan}/${tahun}`, 14, 15);
+      doc.autoTable({
+        startY: 25, head: [['Tanggal', 'Rekening', 'Akun', 'Kategori', 'Keterangan', 'Nominal', 'Jenis']], body: rows,
+        theme: 'grid', headStyles: { fillColor: [26, 35, 126] }, styles: { fontSize: 8 }, columnStyles: { 5: { halign: 'right' } }
+      });
+      doc.save(`${fileName}.pdf`);
+      showToast("Ekspor ke PDF berhasil!", "success");
+    }
+  };
+  document.getElementById('downloadExcel').addEventListener('click', () => downloadData('excel'));
+  document.getElementById('downloadPDF').addEventListener('click', () => downloadData('pdf'));
+  
   document.getElementById('downloadLaporanBulanan').addEventListener('click', function() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    const bulan = document.getElementById('bulan').value;
+    const bulan = bulanEl.value;
     const namaBulan = new Date(2000, parseInt(bulan) - 1, 1).toLocaleString('id-ID', { month: 'long' });
-    const tahun = document.getElementById('tahun').value;
-
-    let totalPemasukanBulanIni = 0;
-    let totalPengeluaranBulanIni = 0;
-    const kategoriSummary = {}; 
-    const rekeningSaldoAwal = {};
-    const rekeningSaldoAkhir = {};
-
+    const tahun = tahunEl.value;
+    let totalPemasukan = 0, totalPengeluaran = 0;
+    const rekeningSaldoAwal = {}, rekeningSaldoAkhir = {};
     let allTransactionsInMonth = [];
 
     rekeningKeys.forEach(({ key, label }) => {
         rekeningSaldoAwal[label] = getSaldoSebelumBulan(label, tahun, bulan); 
-        
         const data = JSON.parse(localStorage.getItem(key)) || [];
-        const filteredForCurrentMonth = data.filter(t => t.tgl.startsWith(`${tahun}-${bulan}`));
-        
-        allTransactionsInMonth = allTransactionsInMonth.concat(
-            filteredForCurrentMonth.map(t => ({ ...t, rekening: label }))
-        );
+        allTransactionsInMonth.push(...data.filter(t => t.tgl.startsWith(`${tahun}-${bulan}`)).map(t => ({ ...t, rekening: label })));
     });
 
     allTransactionsInMonth.forEach(t => {
-        const customCat = getCustomCategoryForAccount(t.akun);
-        const category = customCat || t.kategori || 'Lain-lain';
-
-        if (t.jenis === 'pemasukan' && category !== 'Transfer Masuk') {
-            totalPemasukanBulanIni += t.nominal;
-        } else if (t.jenis === 'pengeluaran' && category !== 'Transfer Keluar' && category !== 'Biaya Admin') {
-            totalPengeluaranBulanIni += t.nominal;
-        }
-        
-        if (!['Transfer Masuk', 'Transfer Keluar', 'Biaya Admin'].includes(category)) {
-            if (!kategoriSummary[category]) {
-                kategoriSummary[category] = 0;
-            }
-            kategoriSummary[category] += t.nominal; 
-        }
+        const category = getCustomCategoryForAccount(t.akun) || t.kategori;
+        if (t.jenis === 'pemasukan' && category !== 'Transfer Masuk') totalPemasukan += t.nominal;
+        else if (t.jenis === 'pengeluaran' && category !== 'Transfer Keluar') totalPengeluaran += t.nominal;
     });
 
-    rekeningKeys.forEach(({ key, label }) => {
-        let currentMonthNetChange = 0;
-        allTransactionsInMonth.filter(t => t.rekening === label).forEach(t => {
-            currentMonthNetChange += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal);
-        });
-        rekeningSaldoAkhir[label] = rekeningSaldoAwal[label] + currentMonthNetChange;
+    rekeningKeys.forEach(({ label }) => {
+        let netChange = 0;
+        allTransactionsInMonth.filter(t => t.rekening === label).forEach(t => netChange += (t.jenis === 'pemasukan' ? t.nominal : -t.nominal));
+        rekeningSaldoAkhir[label] = rekeningSaldoAwal[label] + netChange;
     });
 
-    let totalWealthAtEndOfMonth = 0;
-    Object.entries(rekeningSaldoAkhir).forEach(([label, saldo]) => {
-        if (label === 'Ibu') { 
-            totalWealthAtEndOfMonth -= saldo; 
-        } else {
-            totalWealthAtEndOfMonth += saldo; 
-        }
-    });
-
-    const hasTransactions = allTransactionsInMonth.length > 0;
-    const hasNonZeroBalances = Object.values(rekeningSaldoAkhir).some(s => s !== 0);
-
-    if (!hasTransactions && !hasNonZeroBalances) {
-        return showToast(`Tidak ada data transaksi atau saldo yang signifikan untuk membuat laporan bulanan di bulan ${namaBulan} ${tahun}.`, "warning");
-    }
-
-    let yPos = 15;
-    doc.setFontSize(16);
-    doc.text(`Laporan Keuangan Bulanan`, 14, yPos);
-    yPos += 7;
-    doc.setFontSize(12);
-    doc.text(`Periode: ${namaBulan} ${tahun}`, 14, yPos);
-    yPos += 15;
-
-    doc.setFontSize(12);
-    doc.setTextColor(26, 35, 126);
-    doc.text('Ringkasan Keuangan:', 14, yPos);
-    doc.setTextColor(0, 0, 0);
-    yPos += 8;
-
-    const netProfitLoss = totalPemasukanBulanIni - totalPengeluaranBulanIni;
+    let totalWealth = Object.entries(rekeningSaldoAkhir).reduce((sum, [label, saldo]) => sum + (label === 'Ibu' ? -saldo : saldo), 0);
+    
+    doc.setFontSize(16); doc.text(`Laporan Keuangan Bulanan`, 14, 15);
+    doc.setFontSize(12); doc.text(`Periode: ${namaBulan} ${tahun}`, 14, 22);
+    
     const summaryData = [
-      ['Total Pemasukan Bulan Ini', originalFormatRupiah(totalPemasukanBulanIni), 'text-accent-green'],
-      ['Total Pengeluaran Bulan Ini', originalFormatRupiah(totalPengeluaranBulanIni), 'text-accent-red'],
-      ['Net Profit/Loss Bulan Ini', originalFormatRupiah(netProfitLoss), netProfitLoss >= 0 ? 'text-accent-green' : 'text-accent-red'],
-      ['Total Kekayaan Akhir Bulan', originalFormatRupiah(totalWealthAtEndOfMonth), totalWealthAtEndOfMonth >= 0 ? 'text-accent-green' : 'text-accent-red']
+      ['Total Pemasukan', originalFormatRupiah(totalPemasukan)],
+      ['Total Pengeluaran', originalFormatRupiah(totalPengeluaran)],
+      ['Net Profit/Loss', originalFormatRupiah(totalPemasukan - totalPengeluaran)],
+      ['Total Kekayaan Akhir', originalFormatRupiah(totalWealth)]
     ];
+    doc.autoTable({ startY: 30, head: [['Deskripsi', 'Nominal']], body: summaryData, theme: 'grid' });
 
-    doc.autoTable({
-        startY: yPos,
-        head: [['Deskripsi', 'Nominal']],
-        body: summaryData.map(s => [s[0], s[1]]),
-        theme: 'grid',
-        headStyles: { fillColor: [26, 35, 126] },
-        styles: { fontSize: 10, cellPadding: 2 },
-        columnStyles: {
-            1: { halign: 'right' }
-        },
-        didDrawCell: (data) => {
-            if (data.section === 'body' && data.column.index === 1) {
-                const rawData = summaryData[data.row.index];
-                doc.setTextColor(rawData[2] === 'text-accent-green' ? [56, 142, 60] : [211, 47, 47]);
-            } else {
-                doc.setTextColor(0, 0, 0);
-            }
-        }
-    });
-    yPos = doc.autoTable.previous.finalY + 10;
+    const rekeningRows = rekeningKeys.map(({ label }) => [label, originalFormatRupiah(rekeningSaldoAwal[label]), originalFormatRupiah(rekeningSaldoAkhir[label])]);
+    doc.autoTable({ startY: doc.autoTable.previous.finalY + 10, head: [['Rekening', 'Saldo Awal', 'Saldo Akhir']], body: rekeningRows, theme: 'grid' });
 
-    doc.setFontSize(12);
-    doc.setTextColor(26, 35, 126);
-    doc.text('Ringkasan Total Nominal per Kategori:', 14, yPos); 
-    doc.setTextColor(0, 0, 0);
-    yPos += 8;
-
-    const categoryRows = Object.entries(kategoriSummary).map(([cat, val]) => [
-        cat,
-        originalFormatRupiah(val)
-    ]);
-    categoryRows.sort((a, b) => b[1].localeCompare(a[1]));
-
-    if (categoryRows.length > 0) {
-        doc.autoTable({
-            startY: yPos,
-            head: [['Kategori', 'Total Nominal']], 
-            body: categoryRows,
-            theme: 'grid',
-            headStyles: { fillColor: [26, 35, 126] },
-            styles: { fontSize: 10, cellPadding: 2 },
-            columnStyles: {
-                1: { halign: 'right' }
-            }
-        });
-        yPos = doc.autoTable.previous.finalY + 10;
-    } else {
-        doc.text('Tidak ada ringkasan kategori untuk bulan ini.', 14, yPos);
-        yPos += 10;
-    }
-
-    doc.setFontSize(12);
-    doc.setTextColor(26, 35, 126);
-    doc.text('Saldo Rekening:', 14, yPos);
-    doc.setTextColor(0, 0, 0);
-    yPos += 8;
-
-    const rekeningRows = rekeningKeys.map(({ label }) => {
-        const saldoAkhir = rekeningSaldoAkhir[label] || 0;
-        const saldoAwal = rekeningSaldoAwal[label] || 0;
-        return [
-            label, 
-            originalFormatRupiah(saldoAwal), 
-            originalFormatRupiah(saldoAkhir), 
-            saldoAkhir >= 0 ? 'text-accent-green' : 'text-accent-red'
-        ];
-    });
-
-    if (rekeningRows.length > 0) {
-        doc.autoTable({
-            startY: yPos,
-            head: [['Rekening', 'Saldo Awal Bulan', 'Saldo Akhir Bulan']],
-            body: rekeningRows.map(r => [r[0], r[1], r[2]]),
-            theme: 'grid',
-            headStyles: { fillColor: [26, 35, 126] },
-            styles: { fontSize: 10, cellPadding: 2 },
-            columnStyles: {
-                1: { halign: 'right' },
-                2: { halign: 'right' }
-            },
-            didDrawCell: (data) => {
-                if (data.section === 'body' && data.column.index === 2) {
-                    const rawData = rekeningRows[data.row.index];
-                    doc.setTextColor(rawData[3] === 'text-accent-green' ? [56, 142, 60] : [211, 47, 47]);
-                } else {
-                    doc.setTextColor(0, 0, 0);
-                }
-            }
-        });
-        yPos = doc.autoTable.previous.finalY + 10;
-    } else {
-        doc.text('Tidak ada saldo rekening untuk dilaporkan.', 14, yPos);
-        yPos += 10;
-    }
-
-    const fileName = `Laporan-Keuangan-${namaBulan}-${tahun}.pdf`;
-    doc.save(fileName);
+    doc.save(`Laporan-Keuangan-${namaBulan}-${tahun}.pdf`);
     showToast("Laporan bulanan berhasil diunduh!", "success");
   });
 
-
   document.getElementById('exportBackup').addEventListener('click', function () {
     const allData = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      allData[k] = localStorage.getItem(k);
-    }
-    allData['customAccountClassifications'] = JSON.stringify(customAccountClassifications);
-    allData['monthlyBudgets'] = JSON.stringify(monthlyBudgets); 
-
+    Object.keys(localStorage).forEach(key => allData[key] = localStorage.getItem(key));
     const blob = new Blob([JSON.stringify(allData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const today = new Date();
-    a.href = url;
-    a.download = `Backup-Keuangan-${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}.json`;
-    document.body.appendChild(a);
+    a.href = URL.createObjectURL(blob);
+    a.download = `Backup-Keuangan-${new Date().toISOString().slice(0,10)}.json`;
     a.click();
-    document.body.removeChild(a);
     showToast("Data berhasil diekspor!", "success");
   });
 
   document.getElementById("resetData").addEventListener("click", function () {
-    if (confirm("Yakin ingin menghapus seluruh data yang sudah diinput? Tindakan ini tidak bisa dibatalkan. Pastikan sudah backup terlebih dahulu!")) {
+    if (confirm("Yakin ingin MENGHAPUS SELURUH data? Tindakan ini tidak bisa dibatalkan. Pastikan sudah backup!")) {
       localStorage.clear();
       showToast("Data berhasil direset! Halaman akan dimuat ulang.", "warning");
       setTimeout(() => location.reload(), 1500);
@@ -1556,17 +1061,8 @@
     reader.onload = evt => {
       try {
         const data = JSON.parse(evt.target.result);
-        Object.entries(data).forEach(([key, value]) => {
-          if (key === 'customAccountClassifications') {
-            customAccountClassifications = JSON.parse(value);
-            localStorage.setItem(key, value);
-          } else if (key === 'monthlyBudgets') { 
-            monthlyBudgets = JSON.parse(value);
-            localStorage.setItem(key, value);
-          } else {
-            localStorage.setItem(key, value);
-          }
-        });
+        localStorage.clear();
+        Object.entries(data).forEach(([key, value]) => localStorage.setItem(key, value));
         showToast("Data berhasil diimpor! Halaman akan dimuat ulang.", "success");
         setTimeout(() => location.reload(), 1500);
       } catch {
@@ -1575,36 +1071,34 @@
     };
     reader.readAsText(file);
   });
-
-  ['jumlahTransaksi', 'bulan', 'tahun', 'filterKategori', 'startDate', 'endDate']
-    .forEach(id => document.getElementById(id).addEventListener('change', renderDashboard));
+  
+  ['jumlahTransaksi', 'bulan', 'tahun', 'filterKategori', 'startDate', 'endDate'].forEach(id => document.getElementById(id).addEventListener('change', renderDashboard));
   document.getElementById('searchNama').addEventListener('input', renderDashboard);
 
   function showToast(pesan, type = 'success') {
-    const warna = {
-      success: 'bg-accent-green', error: 'bg-accent-red', warning: 'bg-orange-500', info: 'bg-primary-blue'
+    const styles = {
+      success: { bg: 'bg-accent-green', icon: 'fa-check-circle' },
+      error: { bg: 'bg-accent-red', icon: 'fa-times-circle' },
+      warning: { bg: 'bg-orange-500', icon: 'fa-exclamation-triangle' },
+      info: { bg: 'bg-primary-blue', icon: 'fa-info-circle' }
     };
-    const icon = {
-      success: '<i class="fas fa-check-circle"></i>', 
-      error: '<i class="fas fa-times-circle"></i>', 
-      warning: '<i class="fas fa-exclamation-triangle"></i>', 
-      info: '<i class="fas fa-info-circle"></i>'
-    };
+    const style = styles[type];
     const div = document.createElement('div');
-    div.className = `${warna[type]} text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-slide-in-fade`;
-    div.innerHTML = `<span>${icon[type]}</span><span class="font-medium">${pesan}</span>`;
+    div.className = `${style.bg} text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-slide-in-fade transition-all duration-500`;
+    div.innerHTML = `<span><i class="fas ${style.icon}"></i></span><span class="font-medium">${pesan}</span>`;
     document.getElementById('toastContainer').appendChild(div);
     setTimeout(() => {
-      div.classList.add('opacity-0', 'translate-x-full');
+      div.style.opacity = '0';
+      div.style.transform = 'translateX(100%)';
       setTimeout(() => div.remove(), 500);
     }, 3500);
   }
   
-  // Perbaikan Chart.js agar label tidak keluar
-  const chartContainer = document.getElementById('chartContainer');
-  chartContainer.classList.add('w-full', 'chart-container');
-  
+  // Initial render
+  populateFilterCategories();
   renderDashboard();
+
+});
 </script>
 </body>
 </html>
