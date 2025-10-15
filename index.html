@@ -334,34 +334,25 @@
     'Tagihan', 'Gaji', 'Investasi', 'Kesehatan', 'Lain-lain'
   ];
 
-  // --- PERBAIKAN UTAMA BAGIAN 2: Definisi elemen DOM di awal ---
-  // Mendefinisikan elemen-elemen penting di sini agar lebih rapi dan terhindar dari bug
   const tahunEl = document.getElementById('tahun');
   const bulanEl = document.getElementById('bulan');
 
   let customAccountClassifications = JSON.parse(localStorage.getItem('customAccountClassifications')) || [];
 
-  // --- PERBAIKAN UTAMA BAGIAN 1: Inisialisasi data anggaran yang lebih aman ---
-  // Logika ini mencegah error jika data 'monthlyBudgets' di localStorage rusak atau
-  // dalam format yang salah (misalnya array, bukan objek).
-  let monthlyBudgets = {}; // Default ke objek kosong
+  let monthlyBudgets = {}; 
   try {
     const storedBudgets = localStorage.getItem('monthlyBudgets');
-    if (storedBudgets) { // Hanya proses jika ada data
+    if (storedBudgets) { 
       const parsedBudgets = JSON.parse(storedBudgets);
-      // Pemeriksaan penting: pastikan data yang dimuat adalah objek dan bukan array
       if (typeof parsedBudgets === 'object' && parsedBudgets !== null && !Array.isArray(parsedBudgets)) {
         monthlyBudgets = parsedBudgets;
       } else {
-        // Jika format salah, log pesan dan gunakan objek kosong untuk mencegah aplikasi error
         console.warn('Format `monthlyBudgets` di localStorage tidak valid (bukan objek), data direset.');
       }
     }
   } catch (e) {
     console.error("Gagal memuat data anggaran dari localStorage. Data direset.", e);
-    // Jika JSON.parse gagal, `monthlyBudgets` akan tetap menjadi objek kosong.
   }
-  // --- AKHIR PERBAIKAN UTAMA ---
 
   for (let y = new Date().getFullYear(); y <= new Date().getFullYear() + 10; y++) {
     tahunEl.innerHTML += `<option value="${y}">${y}</option>`;
@@ -520,7 +511,7 @@
 
   function toggleAllNominalVisibility() {
       areNominalsVisible = !areNominalsVisible;
-      renderDashboard(); // Cukup panggil renderDashboard untuk update seluruh UI
+      renderDashboard();
   }
 
   document.querySelector('.toggle-visibility-btn[data-target="all-nominal"]').addEventListener('click', toggleAllNominalVisibility);
@@ -636,7 +627,10 @@
 
   function addKategoriInput(categoryName = '', accounts = '', index = null) {
     const div = document.createElement('div');
-    div.className = 'border border-gray-200 p-4 rounded-lg mb-4 bg-gray-50';
+    // =========================================================================
+    // PERBAIKAN #1: Menambahkan class 'kategori-item' yang unik
+    // =========================================================================
+    div.className = 'border border-gray-200 p-4 rounded-lg mb-4 bg-gray-50 kategori-item';
     const uniqueId = index !== null ? `existing-${index}` : `new-${Date.now()}`;
     div.innerHTML = `
       <div class="flex justify-between items-center mb-3">
@@ -655,7 +649,10 @@
 
   function saveKategoriSettings() {
     const newClassifications = [];
-    kategoriInputContainer.querySelectorAll('.border').forEach(div => {
+    // =========================================================================
+    // PERBAIKAN #2: Menggunakan selector '.kategori-item' yang spesifik
+    // =========================================================================
+    kategoriInputContainer.querySelectorAll('.kategori-item').forEach(div => {
       const categoryName = div.querySelector('.category-name-input').value.trim();
       const accounts = div.querySelector('.accounts-input').value.split(',').map(acc => acc.trim()).filter(acc => acc);
       if (categoryName && accounts.length > 0) {
